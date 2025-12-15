@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Customize your launch splash screen (Dark Mode) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cor de fundo cinza escuro (Gray-800 para tema escuro) -->
+    <item android:drawable="@color/dark_background" />
+
+    <!-- Logo (ícone) centralizado -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/ic_splash_logo" />
+    </item>
+</layer-list>
