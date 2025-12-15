@@ -14,17 +14,17 @@ class User {
   });
 
   User.fromMap(Map<String, dynamic> data)
-      : id = data['id'],
-        email = data['email'],
-        name = data['name'],
-        photoUrl = data['photoUrl'],
-        role = data['role'] ?? 'collaborator';
+    : id = data['id'],
+      email = data['email'],
+      name = data['name'],
+      photoUrl = data['photoUrl'],
+      role = data['role'] ?? 'collaborator';
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'email': email,
-        'name': name,
-        'photoUrl': photoUrl,
-        'role': role,
-      };
+    'id': id,
+    'email': email,
+    'name': name,
+    'photoUrl': photoUrl,
+    'role': role,
+  };
 }

@@ -58,7 +58,9 @@ class _ProfileMenuButtonState extends State<_ProfileMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    final hoverColor = Theme.of(context).colorScheme.primary.withOpacity(_hovering ? 0.08 : 0.0);
+    final hoverColor = Theme.of(
+      context,
+    ).colorScheme.primary.withOpacity(_hovering ? 0.08 : 0.0);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -70,10 +72,7 @@ class _ProfileMenuButtonState extends State<_ProfileMenuButton> {
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeInOut,
           padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: hoverColor,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: hoverColor, shape: BoxShape.circle),
           child: widget.child,
         ),
       ),
@@ -142,137 +141,169 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      final itemWidth = width / widget.items.length;
-      const notchRadius = 28.0;
-      const notchDepth = 10.0; // make the notch shallow so the circle sits above with a gap
-      const gap = 6.0; // small space between circle bottom and the tab bar
-      final notchCenterRaw = itemWidth * widget.selectedIndex + itemWidth / 2;
-      final notchCenter = (notchCenterRaw.clamp(notchRadius + 12.0, width - notchRadius - 12.0)).toDouble();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final itemWidth = width / widget.items.length;
+        const notchRadius = 28.0;
+        const notchDepth =
+            10.0; // make the notch shallow so the circle sits above with a gap
+        const gap = 6.0; // small space between circle bottom and the tab bar
+        final notchCenterRaw = itemWidth * widget.selectedIndex + itemWidth / 2;
+        final notchCenter = (notchCenterRaw.clamp(
+          notchRadius + 12.0,
+          width - notchRadius - 12.0,
+        )).toDouble();
 
-      return SizedBox(
-        height: widget.height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Background with notch (shallow)
-            ClipPath(
-              clipper: _BottomBarClipper(notchCenter: notchCenter, notchRadius: notchRadius * 0.75 /* use smaller radius for notch */ , notchDepth: notchDepth),
-              child: Container(
-                height: widget.height,
-                decoration: BoxDecoration(
-                  color: widget.backgroundColor,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8, offset: const Offset(0, -2)),
-                  ],
+        return SizedBox(
+          height: widget.height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Background with notch (shallow)
+              ClipPath(
+                clipper: _BottomBarClipper(
+                  notchCenter: notchCenter,
+                  notchRadius:
+                      notchRadius * 0.75 /* use smaller radius for notch */,
+                  notchDepth: notchDepth,
                 ),
-              ),
-            ),
-
-            // Row of items with hover backgrounds
-            Positioned.fill(
-              top: 0,
-              child: Row(
-                children: widget.items.asMap().entries.map((e) {
-                  final i = e.key;
-                  final it = e.value;
-                  final selected = i == widget.selectedIndex;
-                  final hovered = i == _hoveredIndex;
-                  return Expanded(
-                    child: MouseRegion(
-                      onEnter: (_) => setState(() => _hoveredIndex = i),
-                      onExit: (_) => setState(() => _hoveredIndex = null),
-                      child: GestureDetector(
-                        onTap: () => widget.onTap(i),
-                        behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(height: selected ? 8 : 12),
-                            // Icon with hover background stacked behind
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 180),
-                                  width: hovered ? 48 : 0,
-                                  height: hovered ? 48 : 0,
-                                  decoration: BoxDecoration(
-                                    color: widget.backgroundColor,
-                                    shape: BoxShape.circle,
-                                    boxShadow: hovered
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.06),
-                                              blurRadius: 6,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                ),
-                                Icon(
-                                  it.icon,
-                                  color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              it.label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-
-            // Floating circular selected icon positioned above the bar with a small gap
-            Positioned(
-              left: notchCenter - notchRadius,
-              top: -(notchRadius * 2) - gap,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
                 child: Container(
-                  key: ValueKey(widget.selectedIndex),
-                  width: notchRadius * 2,
-                  height: notchRadius * 2,
+                  height: widget.height,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
+                    color: widget.backgroundColor,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 8,
+                        offset: const Offset(0, -2),
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Icon(
-                      widget.items[widget.selectedIndex].icon,
-                      color: Colors.white,
-                      size: 28,
+                ),
+              ),
+
+              // Row of items with hover backgrounds
+              Positioned.fill(
+                top: 0,
+                child: Row(
+                  children: widget.items.asMap().entries.map((e) {
+                    final i = e.key;
+                    final it = e.value;
+                    final selected = i == widget.selectedIndex;
+                    final hovered = i == _hoveredIndex;
+                    return Expanded(
+                      child: MouseRegion(
+                        onEnter: (_) => setState(() => _hoveredIndex = i),
+                        onExit: (_) => setState(() => _hoveredIndex = null),
+                        child: GestureDetector(
+                          onTap: () => widget.onTap(i),
+                          behavior: HitTestBehavior.opaque,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(height: selected ? 8 : 12),
+                              // Icon with hover background stacked behind
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    width: hovered ? 48 : 0,
+                                    height: hovered ? 48 : 0,
+                                    decoration: BoxDecoration(
+                                      color: widget.backgroundColor,
+                                      shape: BoxShape.circle,
+                                      boxShadow: hovered
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.06,
+                                                ),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                  ),
+                                  Icon(
+                                    it.icon,
+                                    color: selected
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withOpacity(0.9),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                it.label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: selected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              // Floating circular selected icon positioned above the bar with a small gap
+              Positioned(
+                left: notchCenter - notchRadius,
+                top: -(notchRadius * 2) - gap,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    key: ValueKey(widget.selectedIndex),
+                    width: notchRadius * 2,
+                    height: notchRadius * 2,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        widget.items[widget.selectedIndex].icon,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -280,7 +311,11 @@ class _BottomBarClipper extends CustomClipper<Path> {
   final double notchCenter;
   final double notchRadius;
   final double notchDepth;
-  _BottomBarClipper({required this.notchCenter, required this.notchRadius, this.notchDepth = 10.0});
+  _BottomBarClipper({
+    required this.notchCenter,
+    required this.notchRadius,
+    this.notchDepth = 10.0,
+  });
 
   @override
   Path getClip(Size size) {
@@ -294,9 +329,23 @@ class _BottomBarClipper extends CustomClipper<Path> {
     final nx2 = notchCenter + r + 8;
     path.lineTo(nx1 < 0 ? 0 : nx1, 0);
     // Notch - shallow curve using notchDepth
-    path.quadraticBezierTo(notchCenter - r / 1.4, d * 0.6, notchCenter - r / 3, d);
-    path.arcToPoint(Offset(notchCenter + r / 3, d), radius: Radius.circular(r), clockwise: false);
-    path.quadraticBezierTo(notchCenter + r / 1.4, d * 0.6, nx2 > size.width ? size.width : nx2, 0);
+    path.quadraticBezierTo(
+      notchCenter - r / 1.4,
+      d * 0.6,
+      notchCenter - r / 3,
+      d,
+    );
+    path.arcToPoint(
+      Offset(notchCenter + r / 3, d),
+      radius: Radius.circular(r),
+      clockwise: false,
+    );
+    path.quadraticBezierTo(
+      notchCenter + r / 1.4,
+      d * 0.6,
+      nx2 > size.width ? size.width : nx2,
+      0,
+    );
     // Right top corner to right
     path.lineTo(size.width, 0);
     path.lineTo(size.width, size.height);
@@ -307,7 +356,9 @@ class _BottomBarClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant _BottomBarClipper oldClipper) {
-    return oldClipper.notchCenter != notchCenter || oldClipper.notchRadius != notchRadius || oldClipper.notchDepth != notchDepth;
+    return oldClipper.notchCenter != notchCenter ||
+        oldClipper.notchRadius != notchRadius ||
+        oldClipper.notchDepth != notchDepth;
   }
 }
 
@@ -513,12 +564,8 @@ class AppLogo extends StatelessWidget {
       height: height,
       fit: fit,
       semanticsLabel: 'FinançasApp Logo',
-      placeholderBuilder: (context) => Image.asset(
-        pngFallback,
-        width: width,
-        height: height,
-        fit: fit,
-      ),
+      placeholderBuilder: (context) =>
+          Image.asset(pngFallback, width: width, height: height, fit: fit),
       // On error, the `placeholderBuilder` will show the PNG fallback.
     );
   }
@@ -577,9 +624,11 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
     } else {
       // Filtra categorias pelo tipo padrão se fornecido
       final categoriesToFilter = widget.defaultFilterType != null
-          ? widget.categories.where((c) => c.type == widget.defaultFilterType).toList()
+          ? widget.categories
+                .where((c) => c.type == widget.defaultFilterType)
+                .toList()
           : widget.categories;
-      
+
       // Tenta pré-selecionar uma categoria padrão do tipo filtrado
       _selectedCategoryId = categoriesToFilter.isNotEmpty
           ? categoriesToFilter.first.id
@@ -771,27 +820,42 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               TextField(
-                                decoration: const InputDecoration(labelText: 'Nome'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Nome',
+                                ),
                                 onChanged: (v) => name = v,
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 initialValue: type,
                                 items: const [
-                                  DropdownMenuItem(value: 'income', child: Text('Entrada')),
-                                  DropdownMenuItem(value: 'expense', child: Text('Saída')),
+                                  DropdownMenuItem(
+                                    value: 'income',
+                                    child: Text('Entrada'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'expense',
+                                    child: Text('Saída'),
+                                  ),
                                 ],
                                 onChanged: (v) => type = v ?? 'expense',
-                                decoration: const InputDecoration(labelText: 'Tipo'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Tipo',
+                                ),
                               ),
                             ],
                           ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancelar'),
+                            ),
                             ElevatedButton(
                               onPressed: () {
                                 if (name.trim().isEmpty) return;
-                                Navigator.of(context).pop({'name': name.trim(), 'type': type});
+                                Navigator.of(
+                                  context,
+                                ).pop({'name': name.trim(), 'type': type});
                               },
                               child: const Text('Adicionar'),
                             ),
@@ -802,8 +866,14 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
 
                     if (result != null) {
                       // Criar categoria temporária e selecionar
-                      final newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
-                      final newCat = Category.fromMap({'id': newId, 'name': result['name']!, 'type': result['type']!, 'icon': 'PiggyBank'});
+                      final newId =
+                          'cat_${DateTime.now().millisecondsSinceEpoch}';
+                      final newCat = Category.fromMap({
+                        'id': newId,
+                        'name': result['name']!,
+                        'type': result['type']!,
+                        'icon': 'PiggyBank',
+                      });
                       // Adiciona à lista (a referência vem do pai e deverá persistir)
                       widget.categories.add(newCat);
                       setState(() {
@@ -1829,10 +1899,7 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('pt', 'BR'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
@@ -2172,7 +2239,7 @@ class _MainAppState extends State<MainApp> {
                         borderRadius: BorderRadius.all(Radius.circular(10)),
                       ),
                     ),
-                      initialValue: selectedRole,
+                    initialValue: selectedRole,
                     items: const [
                       DropdownMenuItem(
                         value: 'collaborator',
@@ -2352,9 +2419,14 @@ class _MainAppState extends State<MainApp> {
           if (Navigator.canPop(context)) Navigator.of(context).pop();
         });
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(
+              vertical: 24.0,
+              horizontal: 24.0,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2382,7 +2454,9 @@ class _MainAppState extends State<MainApp> {
                 Text(
                   'A transação foi editada com sucesso.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -2492,7 +2566,10 @@ class _MainAppState extends State<MainApp> {
             borderRadius: BorderRadius.circular(24),
           ),
           backgroundColor: Theme.of(context).cardColor,
-          contentPadding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 24,
+            horizontal: 24,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2516,10 +2593,7 @@ class _MainAppState extends State<MainApp> {
               // Título
               const Text(
                 'Confirmar Exclusão',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -2772,7 +2846,10 @@ class _MainAppState extends State<MainApp> {
   }
 
   // --- Modal de Nova Transação ---
-  void _showNewTransactionModal([Transaction? transactionToEdit, String? defaultFilterType]) {
+  void _showNewTransactionModal([
+    Transaction? transactionToEdit,
+    String? defaultFilterType,
+  ]) {
     // If editing an existing transaction, show a centered dialog
     if (transactionToEdit != null) {
       showDialog(
@@ -2780,8 +2857,13 @@ class _MainAppState extends State<MainApp> {
         barrierDismissible: false,
         builder: (BuildContext context) {
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             child: SingleChildScrollView(
               child: Padding(
                 // Ajusta o padding para o teclado (viewInsets)
@@ -2929,7 +3011,9 @@ class _MainAppState extends State<MainApp> {
                           _currentUser!.email,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         Text(
@@ -3028,8 +3112,14 @@ class _MainAppState extends State<MainApp> {
           ? BottomBarWithNotch(
               items: [
                 BottomBarItemData(icon: iconMap['Home']!, label: 'Início'),
-                BottomBarItemData(icon: iconMap['ArrowUpCircle']!, label: 'Entradas'),
-                BottomBarItemData(icon: iconMap['ArrowDownCircle']!, label: 'Saídas'),
+                BottomBarItemData(
+                  icon: iconMap['ArrowUpCircle']!,
+                  label: 'Entradas',
+                ),
+                BottomBarItemData(
+                  icon: iconMap['ArrowDownCircle']!,
+                  label: 'Saídas',
+                ),
                 BottomBarItemData(icon: iconMap['ListChecks']!, label: 'Todas'),
               ],
               selectedIndex: _selectedIndex,

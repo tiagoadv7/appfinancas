@@ -82,7 +82,9 @@ class _TestStorageScreenState extends State<TestStorageScreen> {
                     await TransactionStorage.clear();
                     await _loadAll();
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                  ),
                   child: const Text('Limpar'),
                 ),
               ],
@@ -98,7 +100,10 @@ class _TestStorageScreenState extends State<TestStorageScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Usuário salvo:', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Usuário salvo:',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     if (_user == null) const Text('- nenhum usuário salvo'),
                     if (_user != null) ...[
@@ -108,7 +113,10 @@ class _TestStorageScreenState extends State<TestStorageScreen> {
                       const SizedBox(height: 12),
                     ],
                     const Divider(),
-                    Text('Transações armazenadas:', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Transações armazenadas:',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     for (var t in _txns)
                       Card(
