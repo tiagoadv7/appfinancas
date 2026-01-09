@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter_svg/flutter_svg.dart';
-// (kIsWeb no longer required here)
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'auth/auth_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth/auth_service.dart';
 import 'auth/mock_auth_service.dart';
 import 'auth/google_auth_service.dart';
 import 'models/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ===================================================================
 // 1. CONSTANTES, MODELOS E UTILITÁRIOS (Unificados no arquivo principal)
@@ -23,31 +26,63 @@ const Color incomeColor = Color(0xFF10B981); // Emerald-500
 const Color expenseColor = Color(0xFFF43F5E); // Rose-500
 const Color successColor = Color(0xFF10B981);
 
-// Mock de Ícones (usando Material Icons)
+// Mock de Ícones (usando FontAwesome Icons)
 Map<String, IconData> iconMap = {
-  'LayoutDashboard': Icons.dashboard,
-  'ArrowUpCircle': Icons.arrow_circle_up,
-  'ArrowDownCircle': Icons.arrow_circle_down,
-  'DollarSign': Icons.attach_money,
-  'ShoppingCart': Icons.shopping_cart,
-  'Home': Icons.home,
-  'Car': Icons.directions_car,
-  'Utensils': Icons.restaurant,
-  'Briefcase': Icons.work,
-  'Shield': Icons.local_hospital,
-  'PiggyBank': Icons.savings,
-  'Settings': Icons.settings,
-  'Users': Icons.people,
-  'Trash2': Icons.delete,
-  'Plus': Icons.add,
-  'X': Icons.close,
-  'ListChecks': Icons.list,
+  'Painel': FontAwesomeIcons.chartLine,
+  'SetaCima': FontAwesomeIcons.arrowUp,
+  'SetaBaixo': FontAwesomeIcons.arrowDown,
+  'Cifrão': FontAwesomeIcons.dollarSign,
+  'CarrinhoCompras': FontAwesomeIcons.cartShopping,
+  'Casa': FontAwesomeIcons.house,
+  'Carro': FontAwesomeIcons.car,
+  'Talheres': FontAwesomeIcons.utensils,
+  'Maleta': FontAwesomeIcons.briefcase,
+  'Escudo': FontAwesomeIcons.shieldHalved,
+  'Porquinho': FontAwesomeIcons.piggyBank,
+  'Engrenagem': FontAwesomeIcons.gear,
+  'Usuarios': FontAwesomeIcons.users,
+  'Lixeira': FontAwesomeIcons.trash,
+  'Mais': FontAwesomeIcons.plus,
+  'X': FontAwesomeIcons.xmark,
+  'ListaVerificacao': FontAwesomeIcons.listCheck,
+  'ArquivoLinhas': FontAwesomeIcons.fileLines,
+  'GraficoPizza': FontAwesomeIcons.chartPie,
+  'CartaoCredito': FontAwesomeIcons.creditCard,
+  'EdificioColunas': FontAwesomeIcons.buildingColumns,
+  'BombaGasolina': FontAwesomeIcons.gasPump,
+  'Escola': FontAwesomeIcons.school,
+  'Filme': FontAwesomeIcons.film,
+  'Futebol': FontAwesomeIcons.futbol,
+  'Aviao': FontAwesomeIcons.plane,
+  'Hotel': FontAwesomeIcons.hotel,
+  'Telefone': FontAwesomeIcons.phone,
+  'Wifi': FontAwesomeIcons.wifi,
+  'Cachorro': FontAwesomeIcons.dog,
+  'Criancas': FontAwesomeIcons.baby,
+  'Halter': FontAwesomeIcons.dumbbell,
+  'Musica': FontAwesomeIcons.music,
+  'Paleta': FontAwesomeIcons.palette,
+  'Camera': FontAwesomeIcons.camera,
+  'Computador': FontAwesomeIcons.computer,
+  'Fones': FontAwesomeIcons.headphones,
+  'Controle': FontAwesomeIcons.gamepad,
+  'GuardaSol': FontAwesomeIcons.umbrellaBeach,
+  'Talheres2': FontAwesomeIcons.bookOpen,
+  'Xicara': FontAwesomeIcons.mugHot,
+  'CopoMartini': FontAwesomeIcons.martiniGlass,
+  'BolsaCompras': FontAwesomeIcons.bagShopping,
+  'Presente': FontAwesomeIcons.gift,
+  'Recibo': FontAwesomeIcons.receipt,
+  'Dinheiro': FontAwesomeIcons.moneyBill,
+  'Porquinho2': FontAwesomeIcons.piggyBank,
+  'SetaCimaTendencia': FontAwesomeIcons.arrowTrendUp,
+  'SetaBaixoTendencia': FontAwesomeIcons.arrowTrendDown,
 };
 
 // Small helper to provide circular hover effect for profile menu button.
 class _ProfileMenuButton extends StatefulWidget {
   final Widget child;
-  const _ProfileMenuButton({Key? key, required this.child}) : super(key: key);
+  const _ProfileMenuButton({super.key, required this.child});
 
   @override
   State<_ProfileMenuButton> createState() => _ProfileMenuButtonState();
@@ -92,6 +127,13 @@ class Category {
       name = data['name'],
       type = data['type'],
       iconName = data['icon'];
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'type': type,
+    'icon': iconName,
+  };
 }
 
 class Transaction {
@@ -107,6 +149,14 @@ class Transaction {
       amount = data['amount'].toDouble(),
       categoryId = data['categoryId'],
       date = DateTime.parse(data['date']);
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'description': description,
+    'amount': amount,
+    'categoryId': categoryId,
+    'date': date.toIso8601String().substring(0, 10),
+  };
 }
 
 // --- Custom Bottom Bar with Notch ---
@@ -124,13 +174,13 @@ class BottomBarWithNotch extends StatefulWidget {
   final double height;
 
   const BottomBarWithNotch({
-    Key? key,
+    super.key,
     required this.items,
     required this.selectedIndex,
     required this.onTap,
     this.backgroundColor = Colors.white,
     this.height = 78,
-  }) : super(key: key);
+  });
 
   @override
   State<BottomBarWithNotch> createState() => _BottomBarWithNotchState();
@@ -230,15 +280,20 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                                             ]
                                           : null,
                                     ),
-                                  ),
-                                  Icon(
-                                    it.icon,
-                                    color: selected
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withOpacity(0.9),
+                                  ), // Oculta o ícone base quando selecionado para exibir apenas o flutuante.
+                                  Opacity(
+                                    opacity: selected ? 0.0 : 1.0,
+                                    child: Icon(
+                                      it.icon,
+                                      color: selected
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withOpacity(0.9),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -407,17 +462,16 @@ String formatCurrency(double value) {
   String sign = value < 0 ? '-' : '';
   double absValue = value.abs();
 
-  String intPart = absValue.toStringAsFixed(0);
-  String decimalPart = (absValue % 1)
-      .toStringAsFixed(2)
-      .substring(2); // Pega .xx
+  List<String> parts = absValue.toStringAsFixed(2).split('.');
+  String intPart = parts[0];
+  String decimalPart = parts[1];
 
   // Adiciona separador de milhar
   String formatted = '';
   int count = 0;
   for (int i = intPart.length - 1; i >= 0; i--) {
     if (count > 0 && count % 3 == 0) {
-      formatted = '.' + formatted;
+      formatted = '.$formatted';
     }
     formatted = intPart[i] + formatted;
     count++;
@@ -433,16 +487,16 @@ String formatDate(DateTime date) {
 
 // --- Dados Mock (Simulando Banco de Dados) ---
 final List<Map<String, dynamic>> mockCategoriesData = [
-  {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'icon': 'Briefcase'},
-  {'id': 'cat-2', 'name': 'Alimentação', 'type': 'expense', 'icon': 'Utensils'},
-  {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'icon': 'Home'},
+  {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'icon': 'Maleta'},
+  {'id': 'cat-2', 'name': 'Alimentação', 'type': 'expense', 'icon': 'Talheres'},
+  {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'icon': 'Casa'},
   {
     'id': 'cat-4',
     'name': 'Investimentos',
     'type': 'income',
-    'icon': 'PiggyBank',
+    'icon': 'Porquinho',
   },
-  {'id': 'cat-5', 'name': 'Lazer', 'type': 'expense', 'icon': 'Car'},
+  {'id': 'cat-5', 'name': 'Educação', 'type': 'expense', 'icon': 'Escola'},
 ];
 
 final List<Map<String, dynamic>> mockTransactionsData = [
@@ -577,6 +631,7 @@ class NewTransactionForm extends StatefulWidget {
   final Function(Transaction) updateTransaction;
   final Transaction? transactionToEdit;
   final String? defaultFilterType;
+  final Function(Category)? onCategoryAdded;
 
   const NewTransactionForm({
     super.key,
@@ -585,6 +640,7 @@ class NewTransactionForm extends StatefulWidget {
     required this.updateTransaction,
     this.transactionToEdit,
     this.defaultFilterType,
+    this.onCategoryAdded,
   });
 
   @override
@@ -684,7 +740,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                 ),
               ),
               IconButton(
-                icon: Icon(iconMap['X'], color: Colors.grey),
+                icon: Icon(FontAwesomeIcons.xmark, color: Colors.grey),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -694,7 +750,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             decoration: const InputDecoration(
               labelText: 'Descrição',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
             onSaved: (value) => _description = value!,
@@ -707,15 +763,16 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
               labelText: 'Valor (R\$)',
               // Adiciona o valor inicial para o campo de valor.
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
             keyboardType: TextInputType.number,
             onSaved: (value) => _amount = value!,
             validator: (value) {
               if (value!.isEmpty) return 'Campo obrigatório';
-              if (double.tryParse(value.replaceAll(',', '.')) == null)
+              if (double.tryParse(value.replaceAll(',', '.')) == null) {
                 return 'Valor inválido. Use ponto ou vírgula.';
+              }
               return null;
             },
             initialValue: _amount,
@@ -727,7 +784,10 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
               'Data: ${_formatDateSafe(_selectedDate)}',
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
-            trailing: const Icon(Icons.calendar_today, color: primaryColor),
+            trailing: const Icon(
+              FontAwesomeIcons.calendar,
+              color: primaryColor,
+            ),
             onTap: () async {
               final DateTime? picked = await showDatePicker(
                 context: context,
@@ -751,9 +811,10 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                   decoration: const InputDecoration(
                     labelText: 'Categoria',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                      borderRadius: BorderRadius.all(Radius.circular(24)),
                     ),
                   ),
+                  borderRadius: BorderRadius.circular(24),
                   initialValue: _selectedCategoryId,
                   items: [
                     const DropdownMenuItem(
@@ -761,9 +822,9 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                       child: Text('Selecione uma Categoria'),
                     ),
                     const DropdownMenuItem(
-                      child: Divider(thickness: 2, height: 5),
                       value: 'divider1',
                       enabled: false,
+                      child: Divider(thickness: 2, height: 5),
                     ),
                     ...incomeCategories.map(
                       (cat) => DropdownMenuItem(
@@ -775,9 +836,9 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                       ),
                     ),
                     const DropdownMenuItem(
-                      child: Divider(thickness: 2, height: 5),
                       value: 'divider2',
                       enabled: false,
+                      child: Divider(thickness: 2, height: 5),
                     ),
                     ...expenseCategories.map(
                       (cat) => DropdownMenuItem(
@@ -814,7 +875,11 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                       builder: (context) {
                         String name = '';
                         String type = 'expense';
+                        String selectedIcon = 'Porquinho';
                         return AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
                           title: const Text('Nova Categoria'),
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -828,6 +893,15 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 initialValue: type,
+                                decoration: const InputDecoration(
+                                  labelText: 'Tipo',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(24),
+                                    ),
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(24),
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'income',
@@ -839,9 +913,33 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                                   ),
                                 ],
                                 onChanged: (v) => type = v ?? 'expense',
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                initialValue: selectedIcon,
+                                items: iconMap.keys.map((iconKey) {
+                                  return DropdownMenuItem(
+                                    value: iconKey,
+                                    child: Row(
+                                      children: [
+                                        Icon(iconMap[iconKey], size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(iconKey),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (v) =>
+                                    selectedIcon = v ?? 'Porquinho',
                                 decoration: const InputDecoration(
-                                  labelText: 'Tipo',
+                                  labelText: 'Ícone',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(24),
+                                    ),
+                                  ),
                                 ),
+                                borderRadius: BorderRadius.circular(24),
                               ),
                             ],
                           ),
@@ -853,9 +951,11 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                             ElevatedButton(
                               onPressed: () {
                                 if (name.trim().isEmpty) return;
-                                Navigator.of(
-                                  context,
-                                ).pop({'name': name.trim(), 'type': type});
+                                Navigator.of(context).pop({
+                                  'name': name.trim(),
+                                  'type': type,
+                                  'icon': selectedIcon,
+                                });
                               },
                               child: const Text('Adicionar'),
                             ),
@@ -872,10 +972,10 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                         'id': newId,
                         'name': result['name']!,
                         'type': result['type']!,
-                        'icon': 'PiggyBank',
+                        'icon': result['icon'] ?? 'Porquinho',
                       });
-                      // Adiciona à lista (a referência vem do pai e deverá persistir)
-                      widget.categories.add(newCat);
+                      // Adiciona à lista via callback
+                      widget.onCategoryAdded?.call(newCat);
                       setState(() {
                         _selectedCategoryId = newCat.id;
                       });
@@ -886,7 +986,9 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                   child: const SizedBox(
                     width: 44,
                     height: 44,
-                    child: Center(child: Icon(Icons.add, color: Colors.white)),
+                    child: Center(
+                      child: Icon(FontAwesomeIcons.plus, color: Colors.white),
+                    ),
                   ),
                 ),
               ),
@@ -1004,7 +1106,7 @@ class TransactionCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Icon(iconMap['Trash2'], color: Colors.white),
+            Icon(iconMap['Lixeira'], color: Colors.white),
             const SizedBox(width: 8),
             const Text(
               'Excluir',
@@ -1036,7 +1138,7 @@ class TransactionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.edit, color: Colors.white),
+            const Icon(FontAwesomeIcons.penToSquare, color: Colors.white),
           ],
         ),
       ),
@@ -1109,7 +1211,7 @@ class TransactionCard extends StatelessWidget {
   }
 }
 
-class TransactionsScreen extends StatelessWidget {
+class TransactionsScreen extends StatefulWidget {
   final List<Transaction> transactions;
   final String filterType; // 'all', 'income', 'expense'
   final Category Function(String) getCategoryById;
@@ -1128,75 +1230,242 @@ class TransactionsScreen extends StatelessWidget {
   });
 
   @override
+  State<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends State<TransactionsScreen> {
+  DateTime _selectedDate = DateTime.now();
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              FontAwesomeIcons.calendar,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhuma transação em ${DateFormat('MMMM', 'pt_BR').format(_selectedDate)}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filteredTransactions = transactions.where((t) {
-      final cat = getCategoryById(t.categoryId);
-      return filterType == 'all' || cat.type == filterType;
+    final filteredTransactions = widget.transactions.where((t) {
+      final cat = widget.getCategoryById(t.categoryId);
+      final matchesType =
+          widget.filterType == 'all' || cat.type == widget.filterType;
+      final matchesDate =
+          t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month;
+      return matchesType && matchesDate;
     }).toList();
 
-    // Título da Tela
-    String getTitle() {
-      switch (filterType) {
-        case 'income':
-          return 'Entradas';
-        case 'expense':
-          return 'Saídas';
-        case 'all':
-        default:
-          return 'Todas as Transações';
+    // Ordenar por data decrescente
+    filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
+
+    // Calcular totais
+    double totalIncome = 0;
+    double totalExpense = 0;
+    for (final t in filteredTransactions) {
+      final cat = widget.getCategoryById(t.categoryId);
+      if (cat.type == 'income') {
+        totalIncome += t.amount;
+      } else {
+        totalExpense += t.amount;
       }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Text(
-            getTitle(),
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onBackground,
+        // Header Card
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      iconMap['ArquivoLinhas'],
+                      color: primaryColor,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Extrato',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Gerencie suas transações, adicione gastos e visualize seu histórico completo.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: filteredTransactions.length,
-          itemBuilder: (context, index) {
-            final t = filteredTransactions[index];
-            final cat = getCategoryById(t.categoryId);
-            final isIncome = cat.type == 'income';
-            final color = isIncome ? incomeColor : expenseColor;
+        const SizedBox(height: 16),
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: TransactionCard(
-                transaction: t,
-                category: cat,
-                color: color,
-                // Permite editar/deletar apenas se tiver permissão
-                onEdit: canEdit ? () => editTransaction(t) : null,
-                onDelete: canEdit ? () => deleteTransaction(t.id) : null,
-              ),
-            );
-          },
+        // Month Selector
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 8.0,
+              horizontal: 16.0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(FontAwesomeIcons.chevronLeft),
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime(
+                        _selectedDate.year,
+                        _selectedDate.month - 1,
+                      );
+                    });
+                  },
+                ),
+                Text(
+                  DateFormat(
+                    'MMMM yyyy',
+                    'pt_BR',
+                  ).format(_selectedDate).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(FontAwesomeIcons.chevronRight),
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime(
+                        _selectedDate.year,
+                        _selectedDate.month + 1,
+                      );
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Cards de Totais
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+              if (widget.filterType == 'all') {
+                return GridView.count(
+                  crossAxisCount: isMobile ? 1 : 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: isMobile ? 4.0 : 4.5,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    SummaryCard(
+                      title: 'Total de Entradas',
+                      value: totalIncome,
+                      color: incomeColor,
+                      icon: FontAwesomeIcons.arrowTrendUp,
+                    ),
+                    SummaryCard(
+                      title: 'Total de Saídas',
+                      value: totalExpense,
+                      color: expenseColor,
+                      icon: FontAwesomeIcons.arrowTrendDown,
+                    ),
+                  ],
+                );
+              } else if (widget.filterType == 'income') {
+                return SummaryCard(
+                  title: 'Total de Entradas',
+                  value: totalIncome,
+                  color: incomeColor,
+                  icon: FontAwesomeIcons.arrowTrendUp,
+                );
+              } else {
+                return SummaryCard(
+                  title: 'Total de Saídas',
+                  value: totalExpense,
+                  color: expenseColor,
+                  icon: FontAwesomeIcons.arrowTrendDown,
+                );
+              }
+            },
+          ),
         ),
         if (filteredTransactions.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Center(
-              child: Text(
-                'Nenhuma ${getTitle().toLowerCase()} encontrada.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+          _buildEmptyState(context)
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredTransactions.length,
+            itemBuilder: (context, index) {
+              final t = filteredTransactions[index];
+              final cat = widget.getCategoryById(t.categoryId);
+              final isIncome = cat.type == 'income';
+              final color = isIncome ? incomeColor : expenseColor;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: TransactionCard(
+                  transaction: t,
+                  category: cat,
+                  color: color,
+                  // Permite editar/deletar apenas se tiver permissão
+                  onEdit: widget.canEdit
+                      ? () => widget.editTransaction(t)
+                      : null,
+                  onDelete: widget.canEdit
+                      ? () => widget.deleteTransaction(t.id)
+                      : null,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+              );
+            },
           ),
         const SizedBox(height: 80), // Espaço para o FAB
       ],
@@ -1214,6 +1483,7 @@ class SummaryCard extends StatelessWidget {
   final double value;
   final Color color;
   final bool isBalance;
+  final IconData? icon;
 
   const SummaryCard({
     super.key,
@@ -1221,6 +1491,7 @@ class SummaryCard extends StatelessWidget {
     required this.value,
     required this.color,
     this.isBalance = false,
+    this.icon,
   });
 
   @override
@@ -1249,26 +1520,87 @@ class SummaryCard extends StatelessWidget {
               Theme.of(context).cardTheme.color ??
               Theme.of(context).colorScheme.surface,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+            if (icon != null)
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Opacity(
+                  opacity: 0.1,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final iconSize = screenWidth < 600 ? 24.0 : 80.0;
+                      return Icon(icon, color: color, size: iconSize);
+                    },
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              formatCurrency(value),
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: valueColor,
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                if (isMobile) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8), // Space for icon
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                formatCurrency(value),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: valueColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatCurrency(value),
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: valueColor,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ],
         ),
@@ -1294,6 +1626,7 @@ class ChartCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1304,7 +1637,7 @@ class ChartCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onBackground,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 15),
@@ -1316,107 +1649,174 @@ class ChartCard extends StatelessWidget {
   }
 }
 
-// --- Componente de Gráfico de Barras Anual ---
-class AnnualBarChart extends StatelessWidget {
+// --- Componente de Gráfico de Pizza (Substituindo Barras) ---
+class AnnualPieChart extends StatelessWidget {
   final List<Map<String, dynamic>> data;
-  final double maxIncome;
-  final double maxExpense;
 
-  const AnnualBarChart({
-    super.key,
-    required this.data,
-    required this.maxIncome,
-    required this.maxExpense,
+  const AnnualPieChart({super.key, required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    double totalIncome = 0;
+    double totalExpense = 0;
+    for (var d in data) {
+      totalIncome += (d['income'] as double);
+      totalExpense += (d['expense'] as double);
+    }
+    final total = totalIncome + totalExpense;
+
+    if (total == 0) {
+      return const Center(child: Text('Sem dados para exibir o gráfico.'));
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = min(constraints.maxWidth, constraints.maxHeight);
+              return Center(
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: CustomPaint(
+                    painter: _PieChartPainter(
+                      income: totalIncome,
+                      expense: totalExpense,
+                      total: total,
+                      incomeColor: incomeColor,
+                      expenseColor: expenseColor,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _LegendItem(
+                color: incomeColor,
+                label: 'Entradas',
+                value: totalIncome,
+                total: total,
+              ),
+              const SizedBox(height: 16),
+              _LegendItem(
+                color: expenseColor,
+                label: 'Saídas',
+                value: totalExpense,
+                total: total,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final double value;
+  final double total;
+
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.total,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return const Center(
-        child: Text('Sem dados anuais para exibir o gráfico.'),
-      );
-    }
-
-    // Altura máxima da área do gráfico (base)
-    const double maxHeight = 200;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        // Define a largura do SingleChildScrollView baseada no número de itens
-        width: max(data.length * 80.0, MediaQuery.of(context).size.width - 32),
-        height: maxHeight + 50, // Adiciona espaço para os rótulos
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: data.map((d) {
-            final double income = d['income'] ?? 0.0;
-            final double expense = d['expense'] ?? 0.0;
-            final String year = d['year'].toString();
-
-            // Calcula a altura proporcional das barras
-            final double incomeHeight = maxIncome > 0
-                ? (income / maxIncome) * maxHeight
-                : 0;
-            final double expenseHeight = maxExpense > 0
-                ? (expense / maxExpense) * maxHeight
-                : 0;
-
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Bar Saída
-                          Tooltip(
-                            message: 'Saídas $year: ${formatCurrency(expense)}',
-                            child: Container(
-                              width: 15,
-                              height: expenseHeight,
-                              decoration: BoxDecoration(
-                                color: expenseColor,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          // Bar Entrada
-                          Tooltip(
-                            message:
-                                'Entradas $year: ${formatCurrency(income)}',
-                            child: Container(
-                              width: 15,
-                              height: incomeHeight,
-                              decoration: BoxDecoration(
-                                color: incomeColor,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      year,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+    final percent = (value / total * 100).toStringAsFixed(1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
-            );
-          }).toList(),
+            ),
+          ],
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(
+          '${formatCurrency(value)} ($percent%)',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
+  }
+}
+
+class _PieChartPainter extends CustomPainter {
+  final double income;
+  final double expense;
+  final double total;
+  final Color incomeColor;
+  final Color expenseColor;
+
+  _PieChartPainter({
+    required this.income,
+    required this.expense,
+    required this.total,
+    required this.incomeColor,
+    required this.expenseColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = size.width * 0.2;
+    final radius = (size.width - strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    // Iniciar de -90 graus (topo)
+    double startAngle = -pi / 2;
+
+    // Income Slice
+    final incomeSweep = (income / total) * 2 * pi;
+    paint.color = incomeColor;
+    canvas.drawArc(rect, startAngle, incomeSweep, false, paint);
+
+    // Expense Slice
+    final expenseSweep = (expense / total) * 2 * pi;
+    paint.color = expenseColor;
+    canvas.drawArc(rect, startAngle + incomeSweep, expenseSweep, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PieChartPainter oldDelegate) {
+    return oldDelegate.income != income ||
+        oldDelegate.expense != expense ||
+        oldDelegate.total != total;
   }
 }
 
@@ -1439,6 +1839,7 @@ class CategorySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1459,76 +1860,77 @@ class CategorySummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 15),
-            SizedBox(
-              height: 200,
-              child: data.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Nenhuma transação de ${title.toLowerCase()} registrada.',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: data.length,
-                      itemBuilder: (context, index) {
-                        final cat = data[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: Row(
-                            children: [
-                              // Ícone da Categoria
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: color.withAlpha(26),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  iconMap[cat['icon']],
-                                  color: color,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      cat['name'] as String,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${cat['count']} transações',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Valor
-                              Text(
-                                formatCurrency(
-                                  cat['amount'] as double,
-                                ).replaceAll('-', ''), // Remove sinal
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: color,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+            data.isEmpty
+                ? Container(
+                    height: 100,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Nenhuma transação de ${title.toLowerCase()} registrada.',
+                      style: const TextStyle(color: Colors.grey),
                     ),
-            ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: data.length,
+                    itemBuilder: (context, index) {
+                      final cat = data[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10.0),
+                        child: Row(
+                          children: [
+                            // Ícone da Categoria
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: color.withAlpha(26),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                iconMap[cat['icon']],
+                                color: color,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cat['name'] as String,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${cat['count']} transações',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Valor
+                            Text(
+                              formatCurrency(
+                                cat['amount'] as double,
+                              ).replaceAll('-', ''), // Remove sinal
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ],
         ),
       ),
@@ -1538,25 +1940,160 @@ class CategorySummaryCard extends StatelessWidget {
 
 class DashboardScreen extends StatelessWidget {
   final Map<String, double> summary;
-  final Map<String, dynamic> aggregatedData;
 
-  const DashboardScreen({
-    super.key,
-    required this.summary,
-    required this.aggregatedData,
-  });
+  const DashboardScreen({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    // Dados Agregados
-    final annualSummary =
-        (aggregatedData['annualSummary'] as Map<dynamic, dynamic>)
-            .cast<int, Map<String, double>>();
-    final categorySummary =
-        (aggregatedData['categorySummary'] as Map<dynamic, dynamic>)
-            .cast<String, Map<String, dynamic>>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Sumário Global (Cards) - Responsivo
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 600;
+            return Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.arrowTrendUp,
+                          color: primaryColor,
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Visão Geral',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Acompanhe o saldo total, receitas e despesas do mês em tempo real.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    GridView.count(
+                      crossAxisCount: isMobile ? 1 : 3,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: isMobile ? 3.0 : 1.8,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        SummaryCard(
+                          title: 'Saldo Atual',
+                          value: summary['balance']!,
+                          color: primaryColor,
+                          isBalance: true,
+                          icon: FontAwesomeIcons.dollarSign,
+                        ),
+                        SummaryCard(
+                          title: 'Total de Entradas',
+                          value: summary['income']!,
+                          color: incomeColor,
+                          icon: FontAwesomeIcons.arrowTrendUp,
+                        ),
+                        SummaryCard(
+                          title: 'Total de Saídas',
+                          value: summary['expense']!,
+                          color: expenseColor,
+                          icon: FontAwesomeIcons.arrowTrendDown,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
 
-    // Categorias Ordenadas (Top 5)
+        const SizedBox(height: 80), // Espaço para o FAB
+      ],
+    );
+  }
+}
+
+class ReportsScreen extends StatefulWidget {
+  final List<Transaction> transactions;
+  final Category Function(String) getCategoryById;
+
+  const ReportsScreen({
+    super.key,
+    required this.transactions,
+    required this.getCategoryById,
+  });
+
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Filtrar transações pelo mês selecionado
+    final monthlyTransactions = widget.transactions.where((t) {
+      return t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month;
+    }).toList();
+
+    // 2. Calcular totais e agrupamentos
+    double totalIncome = 0;
+    double totalExpense = 0;
+    final Map<String, Map<String, dynamic>> categorySummary = {
+      'income': {},
+      'expense': {},
+    };
+
+    for (var t in monthlyTransactions) {
+      final category = widget.getCategoryById(t.categoryId);
+      final type = category.type;
+
+      if (type == 'income') {
+        totalIncome += t.amount;
+      } else {
+        totalExpense += t.amount;
+      }
+
+      categorySummary[type]!.putIfAbsent(
+        category.id,
+        () => {
+          'amount': 0.0,
+          'count': 0,
+          'icon': category.iconName,
+          'name': category.name,
+        },
+      );
+      categorySummary[type]![category.id]!['amount'] =
+          (categorySummary[type]![category.id]!['amount'] as double) + t.amount;
+      categorySummary[type]![category.id]!['count'] =
+          (categorySummary[type]![category.id]!['count'] as int) + 1;
+    }
+
+    // 3. Preparar dados para os gráficos
+    final pieData = [
+      {'income': totalIncome, 'expense': totalExpense},
+    ];
+
     final List<Map<String, dynamic>> sortedIncomeCats =
         categorySummary['income']!.values.cast<Map<String, dynamic>>().toList()
           ..sort(
@@ -1568,91 +2105,126 @@ class DashboardScreen extends StatelessWidget {
             (a, b) => (b['amount'] as double).compareTo(a['amount'] as double),
           );
 
-    // Resumo Anual para o Gráfico
-    final List<Map<String, dynamic>> annualList =
-        annualSummary.entries
-            .map(
-              (e) => {
-                'year': e.key,
-                'income': e.value['income'],
-                'expense': e.value['expense'],
-              },
-            )
-            .toList()
-          ..sort((a, b) => (a['year'] as int).compareTo(b['year'] as int));
-
-    // Calcula os valores máximos para dimensionamento dos gráficos
-    final double maxAnnualExpense = annualList.isEmpty
-        ? 0
-        : annualList.map((e) => e['expense'] as double).reduce(max) * 1.1;
-    final double maxAnnualIncome = annualList.isEmpty
-        ? 0
-        : annualList.map((e) => e['income'] as double).reduce(max) * 1.1;
-
     return Column(
+      key: ValueKey(_selectedDate),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: Text(
-            'Dashboard',
+            'Relatórios Mensais',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onBackground,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
-
-        // 1. Sumário Global (Cards) - Responsivo
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            return GridView.count(
-              crossAxisCount: isMobile ? 1 : 3,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: isMobile ? 3.0 : 1.8,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 8.0,
+              horizontal: 16.0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                SummaryCard(
-                  title: 'Saldo Atual',
-                  value: summary['balance']!,
-                  color: primaryColor,
-                  isBalance: true,
+                IconButton(
+                  icon: const Icon(FontAwesomeIcons.chevronLeft),
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime(
+                        _selectedDate.year,
+                        _selectedDate.month - 1,
+                      );
+                    });
+                  },
                 ),
-                SummaryCard(
-                  title: 'Total de Entradas',
-                  value: summary['income']!,
-                  color: incomeColor,
+                Text(
+                  DateFormat(
+                    'MMMM yyyy',
+                    'pt_BR',
+                  ).format(_selectedDate).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-                SummaryCard(
-                  title: 'Total de Saídas',
-                  value: summary['expense']!,
-                  color: expenseColor,
+                IconButton(
+                  icon: const Icon(FontAwesomeIcons.chevronRight),
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime(
+                        _selectedDate.year,
+                        _selectedDate.month + 1,
+                      );
+                    });
+                  },
                 ),
               ],
-            );
-          },
-        ),
-
-        const SizedBox(height: 25),
-
-        // 2. Gráfico de Resumo Anual
-        ChartCard(
-          title: 'Resumo Anual de Entradas e Saídas',
-          height: 250,
-          chartWidget: AnnualBarChart(
-            data: annualList,
-            maxIncome: maxAnnualIncome,
-            maxExpense: maxAnnualExpense,
+            ),
           ),
         ),
+        const SizedBox(height: 16),
+
+        if (monthlyTransactions.isEmpty)
+          _buildEmptyState(context)
+        else
+          _buildCharts(context, pieData, sortedIncomeCats, sortedExpenseCats),
+
+        const SizedBox(height: 80), // Espaço para o FAB
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              FontAwesomeIcons.chartPie,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Sem dados para este mês.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCharts(
+    BuildContext context,
+    List<Map<String, dynamic>> pieData,
+    List<Map<String, dynamic>> sortedIncomeCats,
+    List<Map<String, dynamic>> sortedExpenseCats,
+  ) {
+    return Column(
+      children: [
+        ChartCard(
+          title: 'Distribuição Mensal',
+          height: 250,
+          chartWidget: AnnualPieChart(data: pieData),
+        ),
 
         const SizedBox(height: 25),
-
-        // 3. Resumo por Categoria - Responsivo
         LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 600;
@@ -1665,14 +2237,14 @@ class DashboardScreen extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 CategorySummaryCard(
-                  title: 'Entradas por Categoria',
-                  icon: 'ArrowUpCircle',
+                  title: 'Entradas',
+                  icon: 'SetaCimaTendencia',
                   data: sortedIncomeCats.take(5).toList(),
                   color: incomeColor,
                 ),
                 CategorySummaryCard(
-                  title: 'Saídas por Categoria',
-                  icon: 'ArrowDownCircle',
+                  title: 'Saídas',
+                  icon: 'SetaBaixoTendencia',
                   data: sortedExpenseCats.take(5).toList(),
                   color: expenseColor,
                 ),
@@ -1680,7 +2252,523 @@ class DashboardScreen extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 80), // Espaço para o FAB
+      ],
+    );
+  }
+}
+
+// ===================================================================
+// 4.1 WIDGET: TELA DE PERFIL
+// ===================================================================
+
+class ProfileScreen extends StatefulWidget {
+  final User user;
+  final bool isAdmin;
+  final VoidCallback onLogout;
+  final Function(User) onUpdateUser;
+  final VoidCallback onManageCollaborators;
+  final VoidCallback onInviteCollaborator;
+  final List<User> collaborators;
+  final List<Category> categories;
+  final Function(Category) onEditCategory;
+  final Function(String) onDeleteCategory;
+
+  const ProfileScreen({
+    super.key,
+    required this.user,
+    required this.isAdmin,
+    required this.onLogout,
+    required this.onUpdateUser,
+    required this.onManageCollaborators,
+    required this.onInviteCollaborator,
+    required this.collaborators,
+    required this.categories,
+    required this.onEditCategory,
+    required this.onDeleteCategory,
+  });
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user.name);
+    _emailController = TextEditingController(text: widget.user.email);
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.user.name != oldWidget.user.name && !_isEditing) {
+      _nameController.text = widget.user.name;
+    }
+    if (widget.user.email != oldWidget.user.email && !_isEditing) {
+      _emailController.text = widget.user.email;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty)
+      return;
+
+    final updatedUser = User(
+      id: widget.user.id,
+      email: _emailController.text.trim(),
+      name: _nameController.text.trim(),
+      photoUrl: widget.user.photoUrl,
+      role: widget.user.role,
+    );
+
+    widget.onUpdateUser(updatedUser);
+    setState(() {
+      _isEditing = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Perfil atualizado com sucesso!'),
+        backgroundColor: successColor,
+      ),
+    );
+  }
+
+  void _showEditCategoryDialog(Category category) async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) {
+        String name = category.name;
+        String type = category.type;
+        String selectedIcon = category.iconName;
+        if (!iconMap.containsKey(selectedIcon)) selectedIcon = 'Porquinho';
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('Editar Categoria'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  initialValue: name,
+                  decoration: const InputDecoration(labelText: 'Nome'),
+                  onChanged: (v) => name = v,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: type,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'income', child: Text('Entrada')),
+                    DropdownMenuItem(value: 'expense', child: Text('Saída')),
+                  ],
+                  onChanged: (v) => type = v ?? 'expense',
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedIcon,
+                  items: iconMap.keys.map((iconKey) {
+                    return DropdownMenuItem(
+                      value: iconKey,
+                      child: Row(
+                        children: [
+                          Icon(iconMap[iconKey], size: 20),
+                          const SizedBox(width: 8),
+                          Text(iconKey),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) => selectedIcon = v ?? 'Porquinho',
+                  decoration: const InputDecoration(
+                    labelText: 'Ícone',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (name.trim().isEmpty) return;
+                Navigator.of(context).pop({
+                  'name': name.trim(),
+                  'type': type,
+                  'icon': selectedIcon,
+                });
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null) {
+      final updatedCat = Category.fromMap({
+        'id': category.id,
+        'name': result['name']!,
+        'type': result['type']!,
+        'icon': result['icon']!,
+      });
+      widget.onEditCategory(updatedCat);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 24.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Meu Perfil',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+        Stack(
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundImage: widget.user.photoUrl != null
+                  ? NetworkImage(widget.user.photoUrl!)
+                  : null,
+              child: widget.user.photoUrl == null
+                  ? Text(
+                      widget.user.name.isNotEmpty
+                          ? widget.user.name[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    )
+                  : null,
+            ),
+            if (_isEditing)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    FontAwesomeIcons.penToSquare,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        if (_isEditing)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _nameController,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome de Exibição',
+                    prefixIcon: Icon(FontAwesomeIcons.user),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _emailController,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail',
+                    prefixIcon: Icon(FontAwesomeIcons.envelope),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isEditing = false;
+                            _nameController.text = widget.user.name;
+                            _emailController.text = widget.user.email;
+                          });
+                        },
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _save,
+                        child: const Text('Salvar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: [
+              Text(
+                widget.user.name,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.user.email,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Chip(
+                label: Text(
+                  widget.user.role == 'owner'
+                      ? 'Proprietário'
+                      : widget.user.role == 'collaborator'
+                      ? 'Colaborador'
+                      : 'Visualizador',
+                ),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withOpacity(0.1),
+                side: BorderSide.none,
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _isEditing = true),
+                icon: const Icon(FontAwesomeIcons.penToSquare),
+                label: const Text('Editar Perfil'),
+              ),
+            ],
+          ),
+
+        const SizedBox(height: 32),
+        const Divider(),
+
+        if (widget.isAdmin)
+          OutlinedButton.icon(
+            onPressed: widget.onInviteCollaborator,
+            icon: Icon(FontAwesomeIcons.userPlus),
+            label: const Text('Convidar Colaborador'),
+          ),
+
+        if (widget.isAdmin) const SizedBox(height: 16),
+
+        if (widget.isAdmin)
+          ListTile(
+            leading: const Icon(FontAwesomeIcons.users, color: primaryColor),
+            title: const Text('Gerenciar Colaboradores'),
+            trailing: const Icon(FontAwesomeIcons.chevronRight),
+            onTap: widget.onManageCollaborators,
+          ),
+
+        if (widget.isAdmin && widget.collaborators.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Colaboradores Ativos',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+          ...widget.collaborators.map(
+            (collab) => Card(
+              margin: const EdgeInsets.only(bottom: 8.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    collab.name.isNotEmpty ? collab.name[0].toUpperCase() : '?',
+                  ),
+                ),
+                title: Text(collab.name),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(collab.email),
+                    Text(
+                      'Permissões: ${collab.role == 'owner'
+                          ? 'Proprietário'
+                          : collab.role == 'collaborator'
+                          ? 'Colaborador'
+                          : 'Visualizador'}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+                trailing: Chip(
+                  label: const Text('Ativo'),
+                  backgroundColor: successColor.withOpacity(0.1),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Categorias Personalizadas',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+        Builder(
+          builder: (context) {
+            final customCats = widget.categories.where((c) {
+              return !mockCategoriesData.any((m) => m['id'] == c.id);
+            }).toList();
+
+            if (customCats.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Text(
+                  'Nenhuma categoria personalizada.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: customCats.map((cat) {
+                final isIncome = cat.type == 'income';
+                final color = isIncome ? incomeColor : expenseColor;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        iconMap[cat.iconName] ?? FontAwesomeIcons.circle,
+                        color: color,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(cat.name),
+                    subtitle: Text(isIncome ? 'Entrada' : 'Saída'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            FontAwesomeIcons.penToSquare,
+                            size: 20,
+                          ),
+                          onPressed: () => _showEditCategoryDialog(cat),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            FontAwesomeIcons.trash,
+                            size: 20,
+                            color: expenseColor,
+                          ),
+                          onPressed: () => widget.onDeleteCategory(cat.id),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+
+        ListTile(
+          leading: const Icon(
+            FontAwesomeIcons.rightFromBracket,
+            color: expenseColor,
+          ),
+          title: const Text(
+            'Sair da Conta',
+            style: TextStyle(color: expenseColor),
+          ),
+          onTap: widget.onLogout,
+        ),
+        const SizedBox(height: 80), // Space for FAB/BottomBar
       ],
     );
   }
@@ -1832,7 +2920,7 @@ class _SplashScreenState extends State<SplashScreen>
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1891,7 +2979,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Finanças App (Flutter)',
+      title: 'Finanças App',
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
       localizationsDelegates: const [
@@ -2081,7 +3169,7 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   // Estado da Aplicação
   bool _isLoading = true;
-  int _selectedIndex = 0; // 0: Dashboard, 1: Entradas, 2: Saídas, 3: Todas
+  int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
 
   late final AuthService _authService;
   User? _currentUser;
@@ -2091,12 +3179,79 @@ class _MainAppState extends State<MainApp> {
   List<Transaction> _transactions = [];
   List<Category> _categories = [];
 
+  // Estado do formulário de registro
+  bool _isRegistering = false;
+  bool _obscureRegisterPassword = true;
+  final _registerNameController = TextEditingController();
+  final _registerEmailController = TextEditingController();
+  final _registerPasswordController = TextEditingController();
+
+  // Estado do formulário de login
+  bool _isLoggingIn = false;
+  bool _obscureLoginPassword = true;
+  final _loginEmailController = TextEditingController();
+  final _loginPasswordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     // Configure auth service (mock or Google) based on config
     _authService = useMockAuth ? MockAuthService() : GoogleAuthService();
+    _loadCachedData();
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _registerNameController.dispose();
+    _registerEmailController.dispose();
+    _registerPasswordController.dispose();
+    _loginEmailController.dispose();
+    _loginPasswordController.dispose();
+    super.dispose();
+  }
+
+  // --- Cache de Dados ---
+  Future<void> _loadCachedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('currentUser');
+    if (userJson != null) {
+      final userMap = Map<String, dynamic>.from(jsonDecode(userJson));
+      _currentUser = User.fromMap(userMap);
+    }
+    final transactionsJson = prefs.getString('transactions');
+    if (transactionsJson != null) {
+      final transactionsList = List<Map<String, dynamic>>.from(
+        jsonDecode(transactionsJson),
+      );
+      _transactions = transactionsList
+          .map((data) => Transaction.fromMap(data))
+          .toList();
+    }
+    final categoriesJson = prefs.getString('categories');
+    if (categoriesJson != null) {
+      final categoriesList = List<Map<String, dynamic>>.from(
+        jsonDecode(categoriesJson),
+      );
+      _categories = categoriesList
+          .map((data) => Category.fromMap(data))
+          .toList();
+    }
+  }
+
+  Future<void> _saveCachedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_currentUser != null) {
+      await prefs.setString('currentUser', jsonEncode(_currentUser!.toMap()));
+    }
+    await prefs.setString(
+      'transactions',
+      jsonEncode(_transactions.map((t) => t.toMap()).toList()),
+    );
+    await prefs.setString(
+      'categories',
+      jsonEncode(_categories.map((c) => c.toMap()).toList()),
+    );
   }
 
   // --- Lógica Mock de Carregamento de Dados (Simulando Firebase) ---
@@ -2108,14 +3263,19 @@ class _MainAppState extends State<MainApp> {
       _categories = mockCategoriesData
           .map((data) => Category.fromMap(data))
           .toList();
-      _transactions = mockTransactionsData
-          .map((data) => Transaction.fromMap(data))
-          .toList();
+      if (_categories.isEmpty) {
+        _categories = mockCategoriesData
+            .map((data) => Category.fromMap(data))
+            .toList();
+      }
+      // Só zera transações se não houver dados carregados do cache
+      if (_transactions.isEmpty) {
+        _transactions = []; // Zerar dados fictícios apenas se vazio
+      }
       _isLoading = false;
     });
   }
 
-  // --- Autenticação via AuthService (mock ou Google) ---
   Future<void> _signInWithGoogle() async {
     try {
       final user = await _authService.signIn();
@@ -2124,6 +3284,7 @@ class _MainAppState extends State<MainApp> {
           _currentUser = user;
           _selectedIndex = 0;
         });
+        _saveCachedData();
         _showWelcomeDialog(user);
       }
     } catch (error) {
@@ -2148,6 +3309,32 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
+  Future<void> _biometricLogin() async {
+    try {
+      // Simulação de biometria (pacote removido para compatibilidade)
+      // Em um cenário real, descomente e use o pacote local_auth
+      bool authenticated = true;
+
+      if (authenticated) {
+        // Simulate login with a mock user
+        final user = User(
+          id: 'biometric-user',
+          email: 'biometric@example.com',
+          name: 'Usuário Biométrico',
+          role: 'owner',
+        );
+        setState(() {
+          _currentUser = user;
+          _selectedIndex = 0;
+        });
+        _saveCachedData();
+        _showWelcomeDialog(user);
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erro na autenticação biométrica: $e');
+    }
+  }
+
   Future<void> _signOut() async {
     try {
       await _authService.signOut();
@@ -2156,9 +3343,18 @@ class _MainAppState extends State<MainApp> {
         _collaborators = [];
         _invitations = [];
       });
+      _saveCachedData();
     } catch (error) {
       _showErrorSnackBar('Erro ao fazer logout');
     }
+  }
+
+  void _updateUser(User updatedUser) async {
+    setState(() {
+      _currentUser = updatedUser;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currentUser', jsonEncode(updatedUser.toMap()));
   }
 
   // --- Modal de Boas-Vindas ---
@@ -2175,13 +3371,13 @@ class _MainAppState extends State<MainApp> {
 
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
-                Icons.check_circle_outline,
+                FontAwesomeIcons.circleCheck,
                 color: successColor,
                 size: 70,
               ),
@@ -2197,6 +3393,54 @@ class _MainAppState extends State<MainApp> {
               const SizedBox(height: 8),
               const Text('Login realizado com sucesso.'),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFeatureInDevelopmentDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  FontAwesomeIcons.personDigging,
+                  color: Colors.orange,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Funcionalidade em Desenvolvimento',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Estamos trabalhando nisso! Em breve estará disponível.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Entendi'),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -2224,7 +3468,7 @@ class _MainAppState extends State<MainApp> {
                 decoration: const InputDecoration(
                   labelText: 'Email do Colaborador',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -2236,7 +3480,7 @@ class _MainAppState extends State<MainApp> {
                     decoration: const InputDecoration(
                       labelText: 'Tipo de Acesso',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                        borderRadius: BorderRadius.all(Radius.circular(24)),
                       ),
                     ),
                     initialValue: selectedRole,
@@ -2300,7 +3544,7 @@ class _MainAppState extends State<MainApp> {
       email: email,
       role: role,
       createdAt: DateTime.now(),
-      createdBy: _currentUser!.email,
+      createdBy: _currentUser!.name,
       accepted: false,
     );
     setState(() {
@@ -2309,27 +3553,20 @@ class _MainAppState extends State<MainApp> {
 
     // 2. Preparar e enviar o e-mail usando url_launcher
     final subject = 'Você foi convidado para colaborar no FinançasApp!';
-    // URL pública do seu logo. Você precisa hospedar o logo em algum lugar.
-    // Ex: Firebase Storage, Imgur, etc.
-    const logoUrl =
-        'https://raw.githubusercontent.com/Tiago-Neves-dos-Santos/appfinancas/main/assets/images/logo_email.png';
-
     final body =
         '''
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-        <img src="$logoUrl" alt="FinançasApp Logo" width="100" style="margin-bottom: 20px;">
-        <h2 style="color: #4F46E5;">Convite para Colaborar</h2>
-        <p>Olá!</p>
-        <p>Você foi convidado por <strong>${_currentUser?.name ?? 'um usuário'}</strong> para colaborar em um painel financeiro no <strong>FinançasApp</strong>.</p>
-        <p>Sua função será de: <strong>$role</strong>.</p>
-        <p>Para aceitar, baixe o aplicativo e faça login com este e-mail.</p>
-        <br>
-        <a href="https://play.google.com/store" style="background-color: #4F46E5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-          Acessar o App
-        </a>
-        <hr style="margin: 30px 0;">
-        <p style="font-size: 12px; color: #888;">Se você não esperava este convite, pode ignorar este e-mail.</p>
-      </div>
+Olá!
+
+Você foi convidado por ${_currentUser?.name ?? 'um usuário'} para colaborar em um painel financeiro no FinançasApp.
+
+Sua função será de: $role.
+
+Para aceitar, baixe o aplicativo e faça login com este e-mail.
+
+Acesse o App aqui: https://play.google.com/store
+
+---
+Se você não esperava este convite, pode ignorar este e-mail.
     ''';
 
     final Uri emailLaunchUri = Uri(
@@ -2406,6 +3643,7 @@ class _MainAppState extends State<MainApp> {
         _transactions[index] = transaction;
       }
     });
+    _saveCachedData();
     // Fechar o modal (caso esteja aberto)
     if (Navigator.canPop(context)) Navigator.of(context).pop();
 
@@ -2439,7 +3677,7 @@ class _MainAppState extends State<MainApp> {
                   ),
                   child: Center(
                     child: Icon(
-                      Icons.check_circle_outline,
+                      FontAwesomeIcons.circleCheck,
                       color: successColor,
                       size: 44,
                     ),
@@ -2466,14 +3704,56 @@ class _MainAppState extends State<MainApp> {
     );
   }
 
+  void _editCategory(Category category) {
+    setState(() {
+      final index = _categories.indexWhere((c) => c.id == category.id);
+      if (index != -1) {
+        _categories[index] = category;
+      }
+    });
+    _saveCachedData();
+  }
+
+  void _deleteCategory(String id) {
+    setState(() {
+      _categories.removeWhere((c) => c.id == id);
+    });
+    _saveCachedData();
+  }
+
   // --- Funções Auxiliares ---
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: expenseColor,
-        duration: const Duration(seconds: 3),
-      ),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                FontAwesomeIcons.triangleExclamation,
+                color: expenseColor,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2545,11 +3825,12 @@ class _MainAppState extends State<MainApp> {
         }),
       );
     });
+    _saveCachedData();
     // Fechar o modal
     Navigator.of(context).pop();
     // Mudar para a tela de 'Todas as Transações' para ver o item recém-adicionado
     setState(() {
-      _selectedIndex = 3;
+      _selectedIndex = 1;
     });
   }
 
@@ -2583,7 +3864,7 @@ class _MainAppState extends State<MainApp> {
                 ),
                 child: Center(
                   child: Icon(
-                    Icons.delete_outline,
+                    FontAwesomeIcons.triangleExclamation,
                     color: expenseColor,
                     size: 48,
                   ),
@@ -2638,6 +3919,7 @@ class _MainAppState extends State<MainApp> {
                         setState(() {
                           _transactions.removeWhere((t) => t.id == id);
                         });
+                        _saveCachedData();
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
@@ -2709,70 +3991,76 @@ class _MainAppState extends State<MainApp> {
     };
   }
 
-  Map<String, dynamic> get _aggregatedData {
-    final Map<int, Map<String, double>> annualSummary = {};
-    final Map<String, Map<String, dynamic>> categorySummary = {
-      'income': {},
-      'expense': {},
-    };
+  void _registerUser() {
+    final name = _registerNameController.text.trim();
+    final email = _registerEmailController.text.trim();
+    final password = _registerPasswordController.text.trim();
 
-    for (var t in _transactions) {
-      final year = t.date.year;
-      final category = _getCategoryById(t.categoryId);
-      final type = category.type;
-
-      // Annual Summary
-      annualSummary.putIfAbsent(year, () => {'income': 0.0, 'expense': 0.0});
-      annualSummary[year]![type] =
-          (annualSummary[year]![type] ?? 0.0) + t.amount;
-
-      // Category Summary
-      categorySummary[type]!.putIfAbsent(
-        category.id,
-        () => {
-          'amount': 0.0,
-          'count': 0,
-          'icon': category.iconName,
-          'name': category.name,
-        },
-      );
-      categorySummary[type]![category.id]!['amount'] =
-          (categorySummary[type]![category.id]!['amount'] as double) + t.amount;
-      categorySummary[type]![category.id]!['count'] =
-          (categorySummary[type]![category.id]!['count'] as int) + 1;
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showErrorSnackBar('Preencha todos os campos');
+      return;
     }
 
-    return {'annualSummary': annualSummary, 'categorySummary': categorySummary};
+    // Cria novo usuário
+    final newUser = User(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      email: email,
+      role: 'owner',
+      photoUrl: null,
+    );
+
+    setState(() {
+      _currentUser = newUser;
+      _selectedIndex = 0;
+      _isRegistering = false;
+    });
+
+    _saveCachedData();
+    _showWelcomeDialog(newUser);
+  }
+
+  void _loginUser() {
+    final email = _loginEmailController.text.trim();
+    final password = _loginPasswordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorSnackBar('Preencha todos os campos');
+      return;
+    }
+
+    // Simulação de validação
+    if (!email.contains('@') || password.length < 6) {
+      _showErrorSnackBar('E-mail ou senha incorretos');
+      return;
+    }
+
+    // Simulação de login
+    final user = User(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      name: email.split('@')[0],
+      email: email,
+      role: 'owner',
+      photoUrl: null,
+    );
+
+    setState(() {
+      _currentUser = user;
+      _selectedIndex = 0;
+      _isLoggingIn = false;
+    });
+
+    _saveCachedData();
+    _showWelcomeDialog(user);
   }
 
   // --- Widgets de Tela ---
   Widget _getBody() {
     // Navegação entre as telas do BottomNavigationBar
     switch (_selectedIndex) {
-      case 0: // Dashboard
-        return DashboardScreen(
-          summary: _summary,
-          aggregatedData: _aggregatedData,
-        );
-      case 1: // Entradas
-        return TransactionsScreen(
-          transactions: _transactions,
-          filterType: 'income',
-          getCategoryById: _getCategoryById,
-          deleteTransaction: _deleteTransaction,
-          editTransaction: (t) => _showNewTransactionModal(t, 'income'),
-          canEdit: _isAdmin || _isCollaborator,
-        );
-      case 2: // Saídas
-        return TransactionsScreen(
-          transactions: _transactions,
-          filterType: 'expense',
-          getCategoryById: _getCategoryById,
-          deleteTransaction: _deleteTransaction,
-          editTransaction: (t) => _showNewTransactionModal(t, 'expense'),
-          canEdit: _isAdmin || _isCollaborator,
-        );
-      case 3: // Todas as Transações
+      case 0: // Início (Dashboard)
+        return DashboardScreen(summary: _summary);
+      case 1: // Extrato (Todas as Transações)
         return TransactionsScreen(
           transactions: _transactions,
           filterType: 'all',
@@ -2781,6 +4069,24 @@ class _MainAppState extends State<MainApp> {
           editTransaction: _showNewTransactionModal,
           canEdit: _isAdmin || _isCollaborator,
         );
+      case 2: // Relatórios
+        return ReportsScreen(
+          transactions: _transactions,
+          getCategoryById: _getCategoryById,
+        );
+      case 3: // Perfil
+        return ProfileScreen(
+          user: _currentUser!,
+          isAdmin: _isAdmin,
+          onLogout: _signOut,
+          onUpdateUser: _updateUser,
+          onManageCollaborators: _showCollaboratorsDialog,
+          onInviteCollaborator: _showInviteCollaboratorDialog,
+          collaborators: _collaborators,
+          categories: _categories,
+          onEditCategory: _editCategory,
+          onDeleteCategory: _deleteCategory,
+        );
       default:
         return const Center(child: Text('Tela não encontrada.'));
     }
@@ -2788,57 +4094,204 @@ class _MainAppState extends State<MainApp> {
 
   // --- Tela de Acesso Negado (Guest) ---
   Widget _buildGuestScreen() {
+    if (_isRegistering) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                FontAwesomeIcons.userPlus,
+                size: 60,
+                color: primaryColor,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Criar Conta',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 30),
+              TextField(
+                controller: _registerNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  prefixIcon: Icon(FontAwesomeIcons.user),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _registerEmailController,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail',
+                  prefixIcon: Icon(FontAwesomeIcons.envelope),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 30),
+              TextField(
+                controller: _registerPasswordController,
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  prefixIcon: const Icon(FontAwesomeIcons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureRegisterPassword
+                          ? FontAwesomeIcons.eye
+                          : FontAwesomeIcons.eyeSlash,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(
+                      () =>
+                          _obscureRegisterPassword = !_obscureRegisterPassword,
+                    ),
+                  ),
+                ),
+                obscureText: _obscureRegisterPassword,
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _registerUser,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text(
+                  'Criar Conta',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isRegistering = false;
+                  });
+                },
+                child: const Text('Voltar para Login'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.lock_outline, size: 60, color: primaryColor),
-            const SizedBox(height: 20),
-            const Text(
-              'Bem-vindo ao FinançasApp',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            const Icon(FontAwesomeIcons.lock, size: 60, color: primaryColor),
+            const SizedBox(height: 40),
+            TextField(
+              controller: _loginEmailController,
+              decoration: const InputDecoration(
+                labelText: 'Seu melhor e-mail',
+                prefixIcon: Icon(FontAwesomeIcons.envelope),
+              ),
+              keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Faça login com sua conta Google para acessar seu painel de controle financeiro e gerenciar transações.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            const SizedBox(height: 16),
+            TextField(
+              controller: _loginPasswordController,
+              decoration: InputDecoration(
+                labelText: 'Sua senha',
+                prefixIcon: const Icon(FontAwesomeIcons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureLoginPassword
+                        ? FontAwesomeIcons.eye
+                        : FontAwesomeIcons.eyeSlash,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(
+                    () => _obscureLoginPassword = !_obscureLoginPassword,
+                  ),
+                ),
+              ),
+              obscureText: _obscureLoginPassword,
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _showFeatureInDevelopmentDialog,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Esqueceu a senha?'),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
-              icon: const Icon(Icons.login),
-              label: const Text('Entrar com Google'),
+              onPressed: _loginUser,
+              icon: const Icon(FontAwesomeIcons.rightToBracket, size: 20),
+              label: const Text(
+                'Entrar',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('ou', style: TextStyle(color: Colors.grey[600])),
+                ),
+                Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
+              icon: const Icon(FontAwesomeIcons.google, size: 20),
+              label: const Text('Continuar com Google'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
-              ),
-            ),
-            // O botão de mock login só é exibido se o principal usar o Google real,
-            // para evitar redundância na tela de teste.
-            if (!useMockAuth) ...[
-              const SizedBox(height: 15),
-              TextButton(
-                onPressed: _mockLogin,
-                child: Text(
-                  'Ou Entrar como Teste (Mock)',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 14,
-                  ),
+                side: const BorderSide(color: Colors.grey),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Ainda não tem conta?',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isRegistering = true;
+                    });
+                  },
+                  child: const Text(
+                    'Cadastre-se',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -2885,6 +4338,11 @@ class _MainAppState extends State<MainApp> {
                     updateTransaction: _updateTransaction,
                     transactionToEdit: transactionToEdit,
                     defaultFilterType: defaultFilterType,
+                    onCategoryAdded: (Category cat) {
+                      _categories.add(cat);
+                      setState(() {});
+                      _saveCachedData();
+                    },
                   ),
                 ),
               ),
@@ -2917,6 +4375,11 @@ class _MainAppState extends State<MainApp> {
             updateTransaction: _updateTransaction,
             transactionToEdit: transactionToEdit,
             defaultFilterType: defaultFilterType,
+            onCategoryAdded: (Category cat) {
+              _categories.add(cat);
+              setState(() {});
+              _saveCachedData();
+            },
           ),
         );
       },
@@ -2962,7 +4425,9 @@ class _MainAppState extends State<MainApp> {
             child: Center(
               child: IconButton(
                 icon: Icon(
-                  widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  widget.isDarkMode
+                      ? FontAwesomeIcons.sun
+                      : FontAwesomeIcons.moon,
                   color: primaryColor,
                 ),
                 tooltip: widget.isDarkMode ? 'Tema Claro' : 'Tema Escuro',
@@ -2970,119 +4435,6 @@ class _MainAppState extends State<MainApp> {
               ),
             ),
           ),
-          // Botão de Convites (apenas para owner)
-          if (_isAdmin)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Center(
-                child: IconButton(
-                  icon: Icon(Icons.person_add, color: primaryColor),
-                  tooltip: 'Convidar Colaborador',
-                  onPressed: _showInviteCollaboratorDialog,
-                ),
-              ),
-            ),
-
-          // Botão de Usuário e Logout
-          if (!_isGuest)
-            Tooltip(
-              message: 'Menu',
-              child: PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                onSelected: (value) {
-                  if (value == 'logout') {
-                    _signOut();
-                  } else if (value == 'collaborators') {
-                    _showCollaboratorsDialog();
-                  }
-                },
-                itemBuilder: (BuildContext context) => [
-                  PopupMenuItem<String>(
-                    value: 'profile',
-                    enabled: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _currentUser!.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _currentUser!.email,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Text(
-                          'Papel: ${_getRoleDisplayName(_currentUser!.role)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  if (_isAdmin)
-                    PopupMenuItem<String>(
-                      value: 'collaborators',
-                      child: Row(
-                        children: [
-                          Icon(Icons.group, color: primaryColor),
-                          const SizedBox(width: 8),
-                          const Text('Colaboradores'),
-                        ],
-                      ),
-                    ),
-                  PopupMenuItem<String>(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.logout,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Sair',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                icon: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: _ProfileMenuButton(
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: _currentUser!.photoUrl != null
-                          ? Theme.of(context).colorScheme.surface
-                          : Theme.of(context).colorScheme.primary,
-                      backgroundImage: _currentUser!.photoUrl != null
-                          ? NetworkImage(_currentUser!.photoUrl!)
-                          : null,
-                      child: _currentUser!.photoUrl == null
-                          ? Text(
-                              _currentUser!.name[0].toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                fontSize: 16,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
       body: _isLoading
@@ -3111,16 +4463,19 @@ class _MainAppState extends State<MainApp> {
       bottomNavigationBar: !_isGuest
           ? BottomBarWithNotch(
               items: [
-                BottomBarItemData(icon: iconMap['Home']!, label: 'Início'),
                 BottomBarItemData(
-                  icon: iconMap['ArrowUpCircle']!,
-                  label: 'Entradas',
+                  icon: FontAwesomeIcons.house,
+                  label: 'Início',
                 ),
                 BottomBarItemData(
-                  icon: iconMap['ArrowDownCircle']!,
-                  label: 'Saídas',
+                  icon: FontAwesomeIcons.fileLines,
+                  label: 'Extrato',
                 ),
-                BottomBarItemData(icon: iconMap['ListChecks']!, label: 'Todas'),
+                BottomBarItemData(
+                  icon: FontAwesomeIcons.chartPie,
+                  label: 'Relatórios',
+                ),
+                BottomBarItemData(icon: FontAwesomeIcons.user, label: 'Perfil'),
               ],
               selectedIndex: _selectedIndex,
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -3130,24 +4485,22 @@ class _MainAppState extends State<MainApp> {
             )
           : null,
       // Esconde o FAB para visitantes
-      floatingActionButton: !_isGuest && (_isAdmin || _isCollaborator)
+      floatingActionButton:
+          !_isGuest &&
+              (_isAdmin || _isCollaborator) &&
+              _selectedIndex != 2 &&
+              _selectedIndex !=
+                  3 // Oculta o FAB na aba "Perfil" e "Todos"
           ? FloatingActionButton(
               // Passa o tipo padrão de categoria baseado na aba selecionada
               onPressed: () {
-                if (_selectedIndex == 1) {
-                  // Aba Entradas
-                  _showNewTransactionModal(null, 'income');
-                } else if (_selectedIndex == 2) {
-                  // Aba Saídas
-                  _showNewTransactionModal(null, 'expense');
-                } else {
-                  // Aba Dashboard ou Todas
-                  _showNewTransactionModal();
-                }
+                _showNewTransactionModal();
               },
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,
-              child: Icon(iconMap['Plus']), // FloatingActionButton usa 'child'
+              child: Icon(
+                FontAwesomeIcons.plus,
+              ), // FloatingActionButton usa 'child'
             )
           : null,
     );
@@ -3188,7 +4541,7 @@ class _MainAppState extends State<MainApp> {
                           trailing: collab.id != _currentUser!.id
                               ? IconButton(
                                   icon: const Icon(
-                                    Icons.delete,
+                                    FontAwesomeIcons.trash,
                                     color: Colors.red,
                                   ),
                                   onPressed: () {
@@ -3221,9 +4574,9 @@ class _MainAppState extends State<MainApp> {
                               contentPadding: EdgeInsets.zero,
                               title: Text(inv.email),
                               subtitle: Text(
-                                '${inv.role} • Enviado em ${formatDate(inv.createdAt)}',
+                                '${inv.role} • Enviado por ${inv.createdBy} em ${formatDate(inv.createdAt)}',
                               ),
-                              trailing: const Icon(Icons.pending_actions),
+                              trailing: const Icon(FontAwesomeIcons.clock),
                             ),
                           ),
                     ],
