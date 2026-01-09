@@ -5,8 +5,8 @@
 ### pubspec.yaml Atualizado
 
 ```yaml
-name: appfinancas
-description: "App de gerenciamento de finanças com autenticação Google e colaboradores."
+name: Finaças App
+description: "App de gerenciamento de finanças pessoal e convite para colaborador."
 publish_to: 'none'
 
 version: 1.0.0+1
