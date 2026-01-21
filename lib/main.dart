@@ -31,16 +31,16 @@ Map<String, IconData> iconMap = {
   'Painel': FontAwesomeIcons.chartLine,
   'SetaCima': FontAwesomeIcons.arrowUp,
   'SetaBaixo': FontAwesomeIcons.arrowDown,
-  'Cifrão': FontAwesomeIcons.dollarSign,
+  'Cifrão': FontAwesomeIcons.moneyBill,
   'CarrinhoCompras': FontAwesomeIcons.cartShopping,
   'Casa': FontAwesomeIcons.house,
   'Carro': FontAwesomeIcons.car,
   'Talheres': FontAwesomeIcons.utensils,
   'Maleta': FontAwesomeIcons.briefcase,
-  'Escudo': FontAwesomeIcons.shieldHalved,
+  'Escudo': FontAwesomeIcons.shield,
   'Porquinho': FontAwesomeIcons.piggyBank,
   'Engrenagem': FontAwesomeIcons.gear,
-  'Usuarios': FontAwesomeIcons.users,
+  'Usuarios': FontAwesomeIcons.peopleGroup,
   'Lixeira': FontAwesomeIcons.trash,
   'Mais': FontAwesomeIcons.plus,
   'X': FontAwesomeIcons.xmark,
@@ -48,7 +48,7 @@ Map<String, IconData> iconMap = {
   'ArquivoLinhas': FontAwesomeIcons.fileLines,
   'GraficoPizza': FontAwesomeIcons.chartPie,
   'CartaoCredito': FontAwesomeIcons.creditCard,
-  'EdificioColunas': FontAwesomeIcons.buildingColumns,
+  'EdificioColunas': FontAwesomeIcons.building,
   'BombaGasolina': FontAwesomeIcons.gasPump,
   'Escola': FontAwesomeIcons.school,
   'Filme': FontAwesomeIcons.film,
@@ -58,7 +58,7 @@ Map<String, IconData> iconMap = {
   'Telefone': FontAwesomeIcons.phone,
   'Wifi': FontAwesomeIcons.wifi,
   'Cachorro': FontAwesomeIcons.dog,
-  'Criancas': FontAwesomeIcons.baby,
+  'Criancas': FontAwesomeIcons.child,
   'Halter': FontAwesomeIcons.dumbbell,
   'Musica': FontAwesomeIcons.music,
   'Paleta': FontAwesomeIcons.palette,
@@ -67,22 +67,23 @@ Map<String, IconData> iconMap = {
   'Fones': FontAwesomeIcons.headphones,
   'Controle': FontAwesomeIcons.gamepad,
   'GuardaSol': FontAwesomeIcons.umbrellaBeach,
-  'Talheres2': FontAwesomeIcons.bookOpen,
+  'Talheres2': FontAwesomeIcons.utensils,
   'Xicara': FontAwesomeIcons.mugHot,
-  'CopoMartini': FontAwesomeIcons.martiniGlass,
+  'CopoMartini': FontAwesomeIcons.martiniGlassEmpty,
   'BolsaCompras': FontAwesomeIcons.bagShopping,
   'Presente': FontAwesomeIcons.gift,
   'Recibo': FontAwesomeIcons.receipt,
-  'Dinheiro': FontAwesomeIcons.moneyBill,
+  'Dinheiro': FontAwesomeIcons.moneyBillWave,
   'Porquinho2': FontAwesomeIcons.piggyBank,
-  'SetaCimaTendencia': FontAwesomeIcons.arrowTrendUp,
-  'SetaBaixoTendencia': FontAwesomeIcons.arrowTrendDown,
+  'SetaCimaTendencia': FontAwesomeIcons.chartLine,
+  'SetaBaixoTendencia': FontAwesomeIcons.arrowDown,
+  'Calendario': FontAwesomeIcons.calendar,
 };
 
 // Small helper to provide circular hover effect for profile menu button.
 class _ProfileMenuButton extends StatefulWidget {
   final Widget child;
-  const _ProfileMenuButton({super.key, required this.child});
+  const _ProfileMenuButton({required this.child});
 
   @override
   State<_ProfileMenuButton> createState() => _ProfileMenuButtonState();
@@ -740,7 +741,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                 ),
               ),
               IconButton(
-                icon: Icon(FontAwesomeIcons.xmark, color: Colors.grey),
+                icon: Icon(iconMap['X'], color: Colors.grey),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -944,11 +945,14 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                             ],
                           ),
                           actions: [
-                            TextButton(
+                            TextButton.icon(
+                              icon: const Icon(FontAwesomeIcons.xmark),
+                              label: const Text('Cancelar'),
                               onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Cancelar'),
                             ),
-                            ElevatedButton(
+                            ElevatedButton.icon(
+                              icon: const Icon(FontAwesomeIcons.floppyDisk),
+                              label: const Text('Adicionar'),
                               onPressed: () {
                                 if (name.trim().isEmpty) return;
                                 Navigator.of(context).pop({
@@ -957,7 +961,6 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                                   'icon': selectedIcon,
                                 });
                               },
-                              child: const Text('Adicionar'),
                             ),
                           ],
                         );
@@ -998,7 +1001,9 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
+                  icon: const Icon(FontAwesomeIcons.xmark),
+                  label: const Text('Cancelar'),
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1009,19 +1014,13 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                       color: Theme.of(context).colorScheme.outline,
                     ),
                   ),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
+                  icon: const Icon(FontAwesomeIcons.floppyDisk),
+                  label: const Text('Salvar'),
                   onPressed: _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
@@ -1031,10 +1030,6 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 4,
-                  ),
-                  child: const Text(
-                    'Salvar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -1218,6 +1213,7 @@ class TransactionsScreen extends StatefulWidget {
   final Function(String) deleteTransaction;
   final Function(Transaction) editTransaction;
   final bool canEdit;
+  final Function(DateTime)? onDateChanged; // Callback quando a data muda
 
   const TransactionsScreen({
     super.key,
@@ -1227,6 +1223,7 @@ class TransactionsScreen extends StatefulWidget {
     required this.deleteTransaction,
     required this.editTransaction,
     required this.canEdit,
+    this.onDateChanged,
   });
 
   @override
@@ -1243,7 +1240,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Column(
           children: [
             Icon(
-              FontAwesomeIcons.calendar,
+              iconMap['Calendario'],
               size: 64,
               color: Theme.of(
                 context,
@@ -1359,6 +1356,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         _selectedDate.year,
                         _selectedDate.month - 1,
                       );
+                      widget.onDateChanged?.call(_selectedDate);
                     });
                   },
                 ),
@@ -1381,6 +1379,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         _selectedDate.year,
                         _selectedDate.month + 1,
                       );
+                      widget.onDateChanged?.call(_selectedDate);
                     });
                   },
                 ),
@@ -1409,13 +1408,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       title: 'Total de Entradas',
                       value: totalIncome,
                       color: incomeColor,
-                      icon: FontAwesomeIcons.arrowTrendUp,
+                      icon: Icons.trending_up,
                     ),
                     SummaryCard(
                       title: 'Total de Saídas',
                       value: totalExpense,
                       color: expenseColor,
-                      icon: FontAwesomeIcons.arrowTrendDown,
+                      icon: Icons.trending_down,
                     ),
                   ],
                 );
@@ -1424,14 +1423,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   title: 'Total de Entradas',
                   value: totalIncome,
                   color: incomeColor,
-                  icon: FontAwesomeIcons.arrowTrendUp,
+                  icon: Icons.trending_up,
                 );
               } else {
                 return SummaryCard(
                   title: 'Total de Saídas',
                   value: totalExpense,
                   color: expenseColor,
-                  icon: FontAwesomeIcons.arrowTrendDown,
+                  icon: Icons.trending_down,
                 );
               }
             },
@@ -1860,77 +1859,76 @@ class CategorySummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 15),
-            data.isEmpty
-                ? Container(
-                    height: 100,
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Nenhuma transação de ${title.toLowerCase()} registrada.',
-                      style: const TextStyle(color: Colors.grey),
+            SizedBox(
+              height: 200,
+              child: data.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Nenhuma transação de ${title.toLowerCase()} registrada.',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: data.length,
+                      itemBuilder: (context, index) {
+                        final cat = data[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Row(
+                            children: [
+                              // Ícone da Categoria
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: color.withAlpha(26),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(
+                                  iconMap[cat['icon']],
+                                  color: color,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      cat['name'] as String,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${cat['count']} transações',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Valor
+                              Text(
+                                formatCurrency(
+                                  cat['amount'] as double,
+                                ).replaceAll('-', ''), // Remove sinal
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    itemCount: data.length,
-                    itemBuilder: (context, index) {
-                      final cat = data[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Row(
-                          children: [
-                            // Ícone da Categoria
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: color.withAlpha(26),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(
-                                iconMap[cat['icon']],
-                                color: color,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    cat['name'] as String,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${cat['count']} transações',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Valor
-                            Text(
-                              formatCurrency(
-                                cat['amount'] as double,
-                              ).replaceAll('-', ''), // Remove sinal
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+            ),
           ],
         ),
       ),
@@ -1940,8 +1938,9 @@ class CategorySummaryCard extends StatelessWidget {
 
 class DashboardScreen extends StatelessWidget {
   final Map<String, double> summary;
+  final DateTime? selectedMonth;
 
-  const DashboardScreen({super.key, required this.summary});
+  const DashboardScreen({super.key, required this.summary, this.selectedMonth});
 
   @override
   Widget build(BuildContext context) {
@@ -1965,7 +1964,7 @@ class DashboardScreen extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          FontAwesomeIcons.arrowTrendUp,
+                          FontAwesomeIcons.chartLine,
                           color: primaryColor,
                           size: 32,
                         ),
@@ -2002,19 +2001,19 @@ class DashboardScreen extends StatelessWidget {
                           value: summary['balance']!,
                           color: primaryColor,
                           isBalance: true,
-                          icon: FontAwesomeIcons.dollarSign,
+                          icon: Icons.attach_money,
                         ),
                         SummaryCard(
                           title: 'Total de Entradas',
                           value: summary['income']!,
                           color: incomeColor,
-                          icon: FontAwesomeIcons.arrowTrendUp,
+                          icon: Icons.trending_up,
                         ),
                         SummaryCard(
                           title: 'Total de Saídas',
                           value: summary['expense']!,
                           color: expenseColor,
-                          icon: FontAwesomeIcons.arrowTrendDown,
+                          icon: Icons.trending_down,
                         ),
                       ],
                     ),
@@ -2109,17 +2108,50 @@ class _ReportsScreenState extends State<ReportsScreen> {
       key: ValueKey(_selectedDate),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Text(
-            'Relatórios Mensais',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
+        // Header Card
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      iconMap['GraficoPizza'],
+                      color: primaryColor,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Relatórios',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Analise suas transações com gráficos e relatórios detalhados por categoria.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
+        const SizedBox(height: 16),
+
+        // Month Selector
         Card(
           elevation: 4,
           shape: RoundedRectangleBorder(
@@ -2189,7 +2221,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: Column(
           children: [
             Icon(
-              FontAwesomeIcons.chartPie,
+              iconMap['GraficoPizza'],
               size: 64,
               color: Theme.of(
                 context,
@@ -2339,12 +2371,166 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isEditing = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Perfil atualizado com sucesso!'),
-        backgroundColor: successColor,
-      ),
-    );
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => Center(
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  FontAwesomeIcons.checkCircle,
+                  color: successColor,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Perfil Atualizado')),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            FontAwesomeIcons.user,
+                            color: primaryColor,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Nome',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                _nameController.text.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            FontAwesomeIcons.envelope,
+                            color: primaryColor,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Email',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                updatedUser.email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            FontAwesomeIcons.checkDouble,
+                            color: successColor,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Alterações salvas!',
+                              style: TextStyle(
+                                color: successColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton.icon(
+                icon: const Icon(FontAwesomeIcons.xmark),
+                label: const Text('Fechar'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(FontAwesomeIcons.check),
+                label: const Text('OK'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   void _showEditCategoryDialog(Category category) async {
@@ -2356,78 +2542,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String selectedIcon = category.iconName;
         if (!iconMap.containsKey(selectedIcon)) selectedIcon = 'Porquinho';
 
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Text('Editar Categoria'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: name,
-                  decoration: const InputDecoration(labelText: 'Nome'),
-                  onChanged: (v) => name = v,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: type,
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+        return Center(
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Text('Editar Categoria'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    initialValue: name,
+                    decoration: const InputDecoration(labelText: 'Nome'),
+                    onChanged: (v) => name = v,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'income', child: Text('Entrada')),
-                    DropdownMenuItem(value: 'expense', child: Text('Saída')),
-                  ],
-                  onChanged: (v) => type = v ?? 'expense',
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedIcon,
-                  items: iconMap.keys.map((iconKey) {
-                    return DropdownMenuItem(
-                      value: iconKey,
-                      child: Row(
-                        children: [
-                          Icon(iconMap[iconKey], size: 20),
-                          const SizedBox(width: 8),
-                          Text(iconKey),
-                        ],
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: type,
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (v) => selectedIcon = v ?? 'Porquinho',
-                  decoration: const InputDecoration(
-                    labelText: 'Ícone',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'income', child: Text('Entrada')),
+                      DropdownMenuItem(value: 'expense', child: Text('Saída')),
+                    ],
+                    onChanged: (v) => type = v ?? 'expense',
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedIcon,
+                    items: iconMap.keys.map((iconKey) {
+                      return DropdownMenuItem(
+                        value: iconKey,
+                        child: Row(
+                          children: [
+                            Icon(iconMap[iconKey], size: 20),
+                            const SizedBox(width: 8),
+                            Text(iconKey),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (v) => selectedIcon = v ?? 'Porquinho',
+                    decoration: const InputDecoration(
+                      labelText: 'Ícone',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(FontAwesomeIcons.xmark),
+                label: const Text('Cancelar'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (name.trim().isEmpty) return;
+                  Navigator.of(context).pop({
+                    'name': name.trim(),
+                    'type': type,
+                    'icon': selectedIcon,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ],
-            ),
+                icon: const Icon(FontAwesomeIcons.floppyDisk),
+                label: const Text('Salvar'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (name.trim().isEmpty) return;
-                Navigator.of(context).pop({
-                  'name': name.trim(),
-                  'type': type,
-                  'icon': selectedIcon,
-                });
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
         );
       },
     );
@@ -2441,6 +2636,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       widget.onEditCategory(updatedCat);
     }
+  }
+
+  void _showSalaryDialog() {
+    TextEditingController salaryController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => Center(
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Gerenciar Salário'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: salaryController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Valor do Salário',
+                  prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: const Text('Cancelar'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(FontAwesomeIcons.floppyDisk),
+              label: const Text('Salvar'),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                if (salaryController.text.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Salário atualizado para: R\$ ${salaryController.text}',
+                      ),
+                      backgroundColor: successColor,
+                    ),
+                  );
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -2534,7 +2788,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: OutlinedButton.icon(
                         onPressed: () {
                           setState(() {
                             _isEditing = false;
@@ -2542,14 +2796,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _emailController.text = widget.user.email;
                           });
                         },
-                        child: const Text('Cancelar'),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(FontAwesomeIcons.xmark),
+                        label: const Text('Cancelar'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
                         onPressed: _save,
-                        child: const Text('Salvar'),
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(FontAwesomeIcons.floppyDisk),
+                        label: const Text('Salvar'),
                       ),
                     ),
                   ],
@@ -2592,9 +2858,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 20),
               OutlinedButton.icon(
-                onPressed: () => setState(() => _isEditing = true),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 icon: const Icon(FontAwesomeIcons.penToSquare),
                 label: const Text('Editar Perfil'),
+                onPressed: () => setState(() => _isEditing = true),
               ),
             ],
           ),
@@ -2604,20 +2875,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (widget.isAdmin)
           OutlinedButton.icon(
-            onPressed: widget.onInviteCollaborator,
-            icon: Icon(FontAwesomeIcons.userPlus),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(FontAwesomeIcons.userPlus),
             label: const Text('Convidar Colaborador'),
+            onPressed: widget.onInviteCollaborator,
           ),
 
         if (widget.isAdmin) const SizedBox(height: 16),
 
         if (widget.isAdmin)
           ListTile(
-            leading: const Icon(FontAwesomeIcons.users, color: primaryColor),
-            title: const Text('Gerenciar Colaboradores'),
+            leading: const Icon(
+              FontAwesomeIcons.moneyBill,
+              color: primaryColor,
+            ),
+            title: const Text('Gerenciar Salário'),
             trailing: const Icon(FontAwesomeIcons.chevronRight),
-            onTap: widget.onManageCollaborators,
+            onTap: _showSalaryDialog,
           ),
+        const SizedBox(height: 16),
+
+        ListTile(
+          leading: const Icon(
+            FontAwesomeIcons.peopleGroup,
+            color: primaryColor,
+          ),
+          title: const Text('Gerenciar Colaboradores'),
+          trailing: const Icon(FontAwesomeIcons.chevronRight),
+          onTap: widget.onManageCollaborators,
+        ),
 
         if (widget.isAdmin && widget.collaborators.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -2675,16 +2965,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Categorias Personalizadas',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+          child: Row(
+            children: [
+              const Icon(FontAwesomeIcons.tag, color: primaryColor, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'Categorias Personalizadas',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
+            ],
           ),
         ),
         Builder(
@@ -2722,7 +3015,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        iconMap[cat.iconName] ?? FontAwesomeIcons.circle,
+                        iconMap[cat.iconName] ?? Icons.circle,
                         color: color,
                         size: 20,
                       ),
@@ -2741,11 +3034,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         IconButton(
                           icon: const Icon(
-                            FontAwesomeIcons.trash,
+                            Icons.delete,
                             size: 20,
                             color: expenseColor,
                           ),
-                          onPressed: () => widget.onDeleteCategory(cat.id),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: const Text('Confirmar Exclusão'),
+                                content: Text(
+                                  'Deseja realmente excluir a categoria "${cat.name}"?',
+                                ),
+                                actions: [
+                                  TextButton.icon(
+                                    icon: const Icon(FontAwesomeIcons.xmark),
+                                    label: const Text('Cancelar'),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                  ),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(FontAwesomeIcons.trash),
+                                    label: const Text('Excluir'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: expenseColor,
+                                    ),
+                                    onPressed: () {
+                                      widget.onDeleteCategory(cat.id);
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -2758,10 +3083,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
 
         ListTile(
-          leading: const Icon(
-            FontAwesomeIcons.rightFromBracket,
-            color: expenseColor,
-          ),
+          leading: const Icon(FontAwesomeIcons.doorOpen, color: expenseColor),
           title: const Text(
             'Sair da Conta',
             style: TextStyle(color: expenseColor),
@@ -3170,6 +3492,8 @@ class _MainAppState extends State<MainApp> {
   // Estado da Aplicação
   bool _isLoading = true;
   int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
+  DateTime _dashboardSelectedMonth =
+      DateTime.now(); // Mês selecionado no Extrato
 
   late final AuthService _authService;
   User? _currentUser;
@@ -3179,19 +3503,6 @@ class _MainAppState extends State<MainApp> {
   List<Transaction> _transactions = [];
   List<Category> _categories = [];
 
-  // Estado do formulário de registro
-  bool _isRegistering = false;
-  bool _obscureRegisterPassword = true;
-  final _registerNameController = TextEditingController();
-  final _registerEmailController = TextEditingController();
-  final _registerPasswordController = TextEditingController();
-
-  // Estado do formulário de login
-  bool _isLoggingIn = false;
-  bool _obscureLoginPassword = true;
-  final _loginEmailController = TextEditingController();
-  final _loginPasswordController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -3199,16 +3510,6 @@ class _MainAppState extends State<MainApp> {
     _authService = useMockAuth ? MockAuthService() : GoogleAuthService();
     _loadCachedData();
     _loadInitialData();
-  }
-
-  @override
-  void dispose() {
-    _registerNameController.dispose();
-    _registerEmailController.dispose();
-    _registerPasswordController.dispose();
-    _loginEmailController.dispose();
-    _loginPasswordController.dispose();
-    super.dispose();
   }
 
   // --- Cache de Dados ---
@@ -3377,7 +3678,7 @@ class _MainAppState extends State<MainApp> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
-                FontAwesomeIcons.circleCheck,
+                Icons.check_circle_outline,
                 color: successColor,
                 size: 70,
               ),
@@ -3393,54 +3694,6 @@ class _MainAppState extends State<MainApp> {
               const SizedBox(height: 8),
               const Text('Login realizado com sucesso.'),
             ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showFeatureInDevelopmentDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  FontAwesomeIcons.personDigging,
-                  color: Colors.orange,
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Funcionalidade em Desenvolvimento',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Estamos trabalhando nisso! Em breve estará disponível.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Entendi'),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
       },
@@ -3505,16 +3758,25 @@ class _MainAppState extends State<MainApp> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: Text(
                 'Cancelar',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            TextButton(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.paperPlane),
+              label: const Text(
+                'Enviar Convite',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 if (emailController.text.isEmpty) {
                   _showErrorSnackBar('Digite um email válido');
@@ -3523,13 +3785,6 @@ class _MainAppState extends State<MainApp> {
                 _sendInvitation(emailController.text, selectedRole);
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'Enviar Convite',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
             ),
           ],
         );
@@ -3553,20 +3808,27 @@ class _MainAppState extends State<MainApp> {
 
     // 2. Preparar e enviar o e-mail usando url_launcher
     final subject = 'Você foi convidado para colaborar no FinançasApp!';
+    // URL pública do seu logo. Você precisa hospedar o logo em algum lugar.
+    // Ex: Firebase Storage, Imgur, etc.
+    const logoUrl =
+        'https://raw.githubusercontent.com/Tiago-Neves-dos-Santos/appfinancas/main/assets/images/logo_email.png';
+
     final body =
         '''
-Olá!
-
-Você foi convidado por ${_currentUser?.name ?? 'um usuário'} para colaborar em um painel financeiro no FinançasApp.
-
-Sua função será de: $role.
-
-Para aceitar, baixe o aplicativo e faça login com este e-mail.
-
-Acesse o App aqui: https://play.google.com/store
-
----
-Se você não esperava este convite, pode ignorar este e-mail.
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+        <img src="$logoUrl" alt="FinançasApp Logo" width="100" style="margin-bottom: 20px;">
+        <h2 style="color: #4F46E5;">Convite para Colaborar</h2>
+        <p>Olá!</p>
+        <p>Você foi convidado por <strong>${_currentUser?.name ?? 'um usuário'}</strong> para colaborar em um painel financeiro no <strong>FinançasApp</strong>.</p>
+        <p>Sua função será de: <strong>$role</strong>.</p>
+        <p>Para aceitar, baixe o aplicativo e faça login com este e-mail.</p>
+        <br>
+        <a href="https://play.google.com/store" style="background-color: #4F46E5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+          Acessar o App
+        </a>
+        <hr style="margin: 30px 0;">
+        <p style="font-size: 12px; color: #888;">Se você não esperava este convite, pode ignorar este e-mail.</p>
+      </div>
     ''';
 
     final Uri emailLaunchUri = Uri(
@@ -3597,16 +3859,25 @@ Se você não esperava este convite, pode ignorar este e-mail.
             'Tem certeza que deseja remover este colaborador?',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: Text(
                 'Cancelar',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            TextButton(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.trash),
+              label: const Text(
+                'Remover',
+                style: TextStyle(
+                  color: expenseColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 setState(() {
                   _collaborators.removeWhere((u) => u.id == userId);
@@ -3614,13 +3885,6 @@ Se você não esperava este convite, pode ignorar este e-mail.
                 Navigator.of(context).pop();
                 _showSuccessSnackBar('Colaborador removido');
               },
-              child: const Text(
-                'Remover',
-                style: TextStyle(
-                  color: expenseColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
             ),
           ],
         );
@@ -3677,7 +3941,7 @@ Se você não esperava este convite, pode ignorar este e-mail.
                   ),
                   child: Center(
                     child: Icon(
-                      FontAwesomeIcons.circleCheck,
+                      Icons.check_circle_outline,
                       color: successColor,
                       size: 44,
                     ),
@@ -3723,37 +3987,12 @@ Se você não esperava este convite, pode ignorar este e-mail.
 
   // --- Funções Auxiliares ---
   void _showErrorSnackBar(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                FontAwesomeIcons.triangleExclamation,
-                color: expenseColor,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK', style: TextStyle(color: primaryColor)),
-            ),
-          ],
-        );
-      },
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: expenseColor,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
@@ -3772,22 +4011,16 @@ Se você não esperava este convite, pode ignorar este e-mail.
     return _currentUser!.role;
   }
 
-  String _getRoleDisplayName(String role) {
-    switch (role) {
-      case 'owner':
-        return 'Proprietário';
-      case 'collaborator':
-        return 'Colaborador';
-      case 'viewer':
-        return 'Visualizador';
-      default:
-        return role;
-    }
-  }
-
   bool get _isAdmin => _userRole == 'owner';
   bool get _isCollaborator => _userRole == 'collaborator';
   bool get _isGuest => _currentUser == null;
+
+  // --- Método para atualizar o mês selecionado no Dashboard ---
+  void _updateDashboardMonth(DateTime month) {
+    setState(() {
+      _dashboardSelectedMonth = month;
+    });
+  }
 
   // --- Funções Auxiliares de Dados ---
   Category _getCategoryById(String id) {
@@ -3864,7 +4097,7 @@ Se você não esperava este convite, pode ignorar este e-mail.
                 ),
                 child: Center(
                   child: Icon(
-                    FontAwesomeIcons.triangleExclamation,
+                    Icons.warning_amber_rounded,
                     color: expenseColor,
                     size: 48,
                   ),
@@ -3892,7 +4125,15 @@ Se você não esperava este convite, pode ignorar este e-mail.
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(FontAwesomeIcons.xmark),
+                      label: Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -3903,18 +4144,13 @@ Se você não esperava este convite, pode ignorar este e-mail.
                           color: Theme.of(context).colorScheme.outline,
                         ),
                       ),
-                      child: Text(
-                        'Cancelar',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(FontAwesomeIcons.trash),
+                      label: const Text('Excluir'),
                       onPressed: () {
                         setState(() {
                           _transactions.removeWhere((t) => t.id == id);
@@ -3929,13 +4165,6 @@ Se você não esperava este convite, pode ignorar este e-mail.
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 4,
-                      ),
-                      child: const Text(
-                        'Deletar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
                       ),
                     ),
                   ),
@@ -3961,9 +4190,10 @@ Se você não esperava este convite, pode ignorar este e-mail.
             'Você precisa estar autenticado para realizar esta ação.',
           ),
           actions: <Widget>[
-            TextButton(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.check),
+              label: const Text('OK', style: TextStyle(color: primaryColor)),
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK', style: TextStyle(color: primaryColor)),
             ),
           ],
         );
@@ -3972,16 +4202,19 @@ Se você não esperava este convite, pode ignorar este e-mail.
   }
 
   // --- Lógica de Derivação de Dados (Para Dashboard) ---
-  Map<String, double> get _summary {
+  // Calcula o sumário filtrado para um mês específico
+  Map<String, double> _calculateSummaryForMonth(DateTime month) {
     double totalIncome = 0;
     double totalExpense = 0;
 
     for (var t in _transactions) {
-      final category = _getCategoryById(t.categoryId);
-      if (category.type == 'income') {
-        totalIncome += t.amount;
-      } else {
-        totalExpense += t.amount;
+      if (t.date.year == month.year && t.date.month == month.month) {
+        final category = _getCategoryById(t.categoryId);
+        if (category.type == 'income') {
+          totalIncome += t.amount;
+        } else {
+          totalExpense += t.amount;
+        }
       }
     }
     return {
@@ -3991,307 +4224,85 @@ Se você não esperava este convite, pode ignorar este e-mail.
     };
   }
 
-  void _registerUser() {
-    final name = _registerNameController.text.trim();
-    final email = _registerEmailController.text.trim();
-    final password = _registerPasswordController.text.trim();
-
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showErrorSnackBar('Preencha todos os campos');
-      return;
-    }
-
-    // Cria novo usuário
-    final newUser = User(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      email: email,
-      role: 'owner',
-      photoUrl: null,
-    );
-
-    setState(() {
-      _currentUser = newUser;
-      _selectedIndex = 0;
-      _isRegistering = false;
-    });
-
-    _saveCachedData();
-    _showWelcomeDialog(newUser);
-  }
-
-  void _loginUser() {
-    final email = _loginEmailController.text.trim();
-    final password = _loginPasswordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      _showErrorSnackBar('Preencha todos os campos');
-      return;
-    }
-
-    // Simulação de validação
-    if (!email.contains('@') || password.length < 6) {
-      _showErrorSnackBar('E-mail ou senha incorretos');
-      return;
-    }
-
-    // Simulação de login
-    final user = User(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      name: email.split('@')[0],
-      email: email,
-      role: 'owner',
-      photoUrl: null,
-    );
-
-    setState(() {
-      _currentUser = user;
-      _selectedIndex = 0;
-      _isLoggingIn = false;
-    });
-
-    _saveCachedData();
-    _showWelcomeDialog(user);
-  }
-
   // --- Widgets de Tela ---
-  Widget _getBody() {
-    // Navegação entre as telas do BottomNavigationBar
-    switch (_selectedIndex) {
-      case 0: // Início (Dashboard)
-        return DashboardScreen(summary: _summary);
-      case 1: // Extrato (Todas as Transações)
-        return TransactionsScreen(
-          transactions: _transactions,
-          filterType: 'all',
-          getCategoryById: _getCategoryById,
-          deleteTransaction: _deleteTransaction,
-          editTransaction: _showNewTransactionModal,
-          canEdit: _isAdmin || _isCollaborator,
-        );
-      case 2: // Relatórios
-        return ReportsScreen(
-          transactions: _transactions,
-          getCategoryById: _getCategoryById,
-        );
-      case 3: // Perfil
-        return ProfileScreen(
-          user: _currentUser!,
-          isAdmin: _isAdmin,
-          onLogout: _signOut,
-          onUpdateUser: _updateUser,
-          onManageCollaborators: _showCollaboratorsDialog,
-          onInviteCollaborator: _showInviteCollaboratorDialog,
-          collaborators: _collaborators,
-          categories: _categories,
-          onEditCategory: _editCategory,
-          onDeleteCategory: _deleteCategory,
-        );
-      default:
-        return const Center(child: Text('Tela não encontrada.'));
-    }
-  }
 
   // --- Tela de Acesso Negado (Guest) ---
   Widget _buildGuestScreen() {
-    if (_isRegistering) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                FontAwesomeIcons.userPlus,
-                size: 60,
-                color: primaryColor,
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Criar Conta',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 30),
-              TextField(
-                controller: _registerNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  prefixIcon: Icon(FontAwesomeIcons.user),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _registerEmailController,
-                decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  prefixIcon: Icon(FontAwesomeIcons.envelope),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 30),
-              TextField(
-                controller: _registerPasswordController,
-                decoration: InputDecoration(
-                  labelText: 'Senha',
-                  prefixIcon: const Icon(FontAwesomeIcons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureRegisterPassword
-                          ? FontAwesomeIcons.eye
-                          : FontAwesomeIcons.eyeSlash,
-                      size: 20,
-                    ),
-                    onPressed: () => setState(
-                      () =>
-                          _obscureRegisterPassword = !_obscureRegisterPassword,
-                    ),
-                  ),
-                ),
-                obscureText: _obscureRegisterPassword,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _registerUser,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text(
-                  'Criar Conta',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isRegistering = false;
-                  });
-                },
-                child: const Text('Voltar para Login'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Icon(FontAwesomeIcons.lock, size: 60, color: primaryColor),
-            const SizedBox(height: 40),
-            TextField(
-              controller: _loginEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Seu melhor e-mail',
-                prefixIcon: Icon(FontAwesomeIcons.envelope),
-              ),
-              keyboardType: TextInputType.emailAddress,
+            const SizedBox(height: 20),
+            const Text(
+              'Bem-vindo ao FinançasApp',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _loginPasswordController,
-              decoration: InputDecoration(
-                labelText: 'Sua senha',
-                prefixIcon: const Icon(FontAwesomeIcons.lock),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureLoginPassword
-                        ? FontAwesomeIcons.eye
-                        : FontAwesomeIcons.eyeSlash,
-                    size: 20,
-                  ),
-                  onPressed: () => setState(
-                    () => _obscureLoginPassword = !_obscureLoginPassword,
-                  ),
-                ),
-              ),
-              obscureText: _obscureLoginPassword,
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _showFeatureInDevelopmentDialog,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Esqueceu a senha?'),
+            const SizedBox(height: 10),
+            Text(
+              'Faça login com sua conta Google para acessar seu painel de controle financeiro e gerenciar transações.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: _loginUser,
-              icon: const Icon(FontAwesomeIcons.rightToBracket, size: 20),
-              label: const Text(
-                'Entrar',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
+              icon: const Icon(FontAwesomeIcons.google),
+              label: const Text('Entrar com Google'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 30,
+                  vertical: 15,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('ou', style: TextStyle(color: Colors.grey[600])),
-                ),
-                Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
-              ],
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
-              icon: const Icon(FontAwesomeIcons.google, size: 20),
-              label: const Text('Continuar com Google'),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
-                side: const BorderSide(color: Colors.grey),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Ainda não tem conta?',
-                  style: TextStyle(color: Colors.grey[700]),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _isRegistering = true;
-                    });
-                  },
-                  child: const Text(
-                    'Cadastre-se',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 15),
+            if (!kIsWeb)
+              ElevatedButton.icon(
+                onPressed: _biometricLogin,
+                icon: const Icon(FontAwesomeIcons.fingerprint),
+                label: const Text('Entrar com Biometria'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 15,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
-              ],
-            ),
+              ),
+            // O botão de mock login só é exibido se o principal usar o Google real,
+            // para evitar redundância na tela de teste.
+            if (!useMockAuth) ...[
+              const SizedBox(height: 15),
+              TextButton.icon(
+                icon: const Icon(FontAwesomeIcons.user),
+                label: Text(
+                  'Ou Entrar como Teste (Mock)',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+                onPressed: _mockLogin,
+              ),
+            ],
           ],
         ),
       ),
@@ -4425,9 +4436,7 @@ Se você não esperava este convite, pode ignorar este e-mail.
             child: Center(
               child: IconButton(
                 icon: Icon(
-                  widget.isDarkMode
-                      ? FontAwesomeIcons.sun
-                      : FontAwesomeIcons.moon,
+                  widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
                   color: primaryColor,
                 ),
                 tooltip: widget.isDarkMode ? 'Tema Claro' : 'Tema Escuro',
@@ -4453,29 +4462,75 @@ Se você não esperava este convite, pode ignorar este e-mail.
             )
           : _isGuest
           ? _buildGuestScreen()
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _getBody(),
-              ),
+          : IndexedStack(
+              index: _selectedIndex,
+              children: [
+                // Aba 0: Dashboard
+                SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: DashboardScreen(
+                      summary: _calculateSummaryForMonth(
+                        _dashboardSelectedMonth,
+                      ),
+                      selectedMonth: _dashboardSelectedMonth,
+                    ),
+                  ),
+                ),
+                // Aba 1: Extrato
+                SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TransactionsScreen(
+                      transactions: _transactions,
+                      filterType: 'all',
+                      getCategoryById: _getCategoryById,
+                      deleteTransaction: _deleteTransaction,
+                      editTransaction: _showNewTransactionModal,
+                      canEdit: _isAdmin || _isCollaborator,
+                      onDateChanged: _updateDashboardMonth,
+                    ),
+                  ),
+                ),
+                // Aba 2: Relatórios
+                SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: ReportsScreen(
+                      transactions: _transactions,
+                      getCategoryById: _getCategoryById,
+                    ),
+                  ),
+                ),
+                // Aba 3: Perfil
+                ProfileScreen(
+                  user: _currentUser!,
+                  isAdmin: _isAdmin,
+                  onLogout: _signOut,
+                  onUpdateUser: _updateUser,
+                  onManageCollaborators: _showCollaboratorsDialog,
+                  onInviteCollaborator: _showInviteCollaboratorDialog,
+                  collaborators: _collaborators,
+                  categories: _categories,
+                  onEditCategory: _editCategory,
+                  onDeleteCategory: _deleteCategory,
+                ),
+              ],
             ),
       // Esconde a barra de navegação para visitantes
       bottomNavigationBar: !_isGuest
           ? BottomBarWithNotch(
               items: [
+                BottomBarItemData(icon: iconMap['Casa']!, label: 'Início'),
                 BottomBarItemData(
-                  icon: FontAwesomeIcons.house,
-                  label: 'Início',
-                ),
-                BottomBarItemData(
-                  icon: FontAwesomeIcons.fileLines,
+                  icon: iconMap['ArquivoLinhas']!,
                   label: 'Extrato',
                 ),
                 BottomBarItemData(
-                  icon: FontAwesomeIcons.chartPie,
+                  icon: iconMap['GraficoPizza']!,
                   label: 'Relatórios',
                 ),
-                BottomBarItemData(icon: FontAwesomeIcons.user, label: 'Perfil'),
+                BottomBarItemData(icon: Icons.person, label: 'Perfil'),
               ],
               selectedIndex: _selectedIndex,
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -4498,9 +4553,7 @@ Se você não esperava este convite, pode ignorar este e-mail.
               },
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,
-              child: Icon(
-                FontAwesomeIcons.plus,
-              ), // FloatingActionButton usa 'child'
+              child: Icon(iconMap['Mais']), // FloatingActionButton usa 'child'
             )
           : null,
     );
@@ -4541,7 +4594,7 @@ Se você não esperava este convite, pode ignorar este e-mail.
                           trailing: collab.id != _currentUser!.id
                               ? IconButton(
                                   icon: const Icon(
-                                    FontAwesomeIcons.trash,
+                                    Icons.delete,
                                     color: Colors.red,
                                   ),
                                   onPressed: () {
@@ -4592,12 +4645,13 @@ Se você não esperava este convite, pode ignorar este e-mail.
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: const Text(
                 'Fechar',
                 style: TextStyle(color: primaryColor),
               ),
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         );
