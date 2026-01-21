@@ -80,6 +80,67 @@ Map<String, IconData> iconMap = {
   'Calendario': FontAwesomeIcons.calendar,
 };
 
+// --- Função Helper Global para Modais de Alerta ---
+void showCenteredAlertModal({
+  required BuildContext context,
+  required String title,
+  required String message,
+  required IconData icon,
+  required Color iconColor,
+  Duration autoCloseDuration = const Duration(milliseconds: 2500),
+}) {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (BuildContext dialogContext) {
+      // Auto-fechar após o tempo especificado
+      Future.delayed(autoCloseDuration, () {
+        if (Navigator.canPop(dialogContext)) {
+          Navigator.of(dialogContext).pop();
+        }
+      });
+
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(child: Icon(icon, color: iconColor, size: 32)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 // Small helper to provide circular hover effect for profile menu button.
 class _ProfileMenuButton extends StatefulWidget {
   final Widget child;
@@ -1300,9 +1361,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       iconMap['ArquivoLinhas'],
@@ -1327,6 +1389,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     fontSize: 16,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -1959,9 +2022,10 @@ class DashboardScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           FontAwesomeIcons.chartLine,
@@ -1986,6 +2050,7 @@ class DashboardScreen extends StatelessWidget {
                         fontSize: 16,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
                     GridView.count(
@@ -2117,9 +2182,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       iconMap['GraficoPizza'],
@@ -2144,6 +2210,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     fontSize: 16,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -2276,7 +2343,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 CategorySummaryCard(
                   title: 'Saídas',
-                  icon: 'SetaBaixoTendencia',
+                  icon: 'Dinheiro',
                   data: sortedExpenseCats.take(5).toList(),
                   color: expenseColor,
                 ),
@@ -2679,13 +2746,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               onPressed: () {
                 if (salaryController.text.isNotEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
+                  showCenteredAlertModal(
+                    context: context,
+                    title: 'Sucesso',
+                    message:
                         'Salário atualizado para: R\$ ${salaryController.text}',
-                      ),
-                      backgroundColor: successColor,
-                    ),
+                    icon: FontAwesomeIcons.circleCheck,
+                    iconColor: successColor,
                   );
                   Navigator.of(context).pop();
                 }
@@ -2699,399 +2766,517 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 24.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Meu Perfil',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ),
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              backgroundImage: widget.user.photoUrl != null
-                  ? NetworkImage(widget.user.photoUrl!)
-                  : null,
-              child: widget.user.photoUrl == null
-                  ? Text(
-                      widget.user.name.isNotEmpty
-                          ? widget.user.name[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    )
-                  : null,
-            ),
-            if (_isEditing)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      width: 2,
-                    ),
-                  ),
-                  child: const Icon(
-                    FontAwesomeIcons.penToSquare,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        if (_isEditing)
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Header Card
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _nameController,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome de Exibição',
-                    prefixIcon: Icon(FontAwesomeIcons.user),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _emailController,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    labelText: 'E-mail',
-                    prefixIcon: Icon(FontAwesomeIcons.envelope),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _isEditing = false;
-                            _nameController.text = widget.user.name;
-                            _emailController.text = widget.user.email;
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(FontAwesomeIcons.xmark),
-                        label: const Text('Cancelar'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(FontAwesomeIcons.floppyDisk),
-                        label: const Text('Salvar'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          )
-        else
-          Column(
-            children: [
-              Text(
-                widget.user.name,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.user.email,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Chip(
-                label: Text(
-                  widget.user.role == 'owner'
-                      ? 'Proprietário'
-                      : widget.user.role == 'collaborator'
-                      ? 'Colaborador'
-                      : 'Visualizador',
-                ),
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withOpacity(0.1),
-                side: BorderSide.none,
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(FontAwesomeIcons.penToSquare),
-                label: const Text('Editar Perfil'),
-                onPressed: () => setState(() => _isEditing = true),
-              ),
-            ],
-          ),
-
-        const SizedBox(height: 32),
-        const Divider(),
-
-        if (widget.isAdmin)
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(FontAwesomeIcons.userPlus),
-            label: const Text('Convidar Colaborador'),
-            onPressed: widget.onInviteCollaborator,
-          ),
-
-        if (widget.isAdmin) const SizedBox(height: 16),
-
-        if (widget.isAdmin)
-          ListTile(
-            leading: const Icon(
-              FontAwesomeIcons.moneyBill,
-              color: primaryColor,
-            ),
-            title: const Text('Gerenciar Salário'),
-            trailing: const Icon(FontAwesomeIcons.chevronRight),
-            onTap: _showSalaryDialog,
-          ),
-        const SizedBox(height: 16),
-
-        ListTile(
-          leading: const Icon(
-            FontAwesomeIcons.peopleGroup,
-            color: primaryColor,
-          ),
-          title: const Text('Gerenciar Colaboradores'),
-          trailing: const Icon(FontAwesomeIcons.chevronRight),
-          onTap: widget.onManageCollaborators,
-        ),
-
-        if (widget.isAdmin && widget.collaborators.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Colaboradores Ativos',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-          ...widget.collaborators.map(
-            (collab) => Card(
-              margin: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.all(16.0),
+            child: Card(
+              elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
-                    collab.name.isNotEmpty ? collab.name[0].toUpperCase() : '?',
-                  ),
-                ),
-                title: Text(collab.name),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(collab.email),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.user,
+                          color: primaryColor,
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Meu Perfil',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Permissões: ${collab.role == 'owner'
-                          ? 'Proprietário'
-                          : collab.role == 'collaborator'
-                          ? 'Colaborador'
-                          : 'Visualizador'}',
-                      style: TextStyle(fontSize: 12),
+                      'Gerencie suas informações pessoais e configurações de conta',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
-                ),
-                trailing: Chip(
-                  label: const Text('Ativo'),
-                  backgroundColor: successColor.withOpacity(0.1),
                 ),
               ),
             ),
           ),
-        ],
+          const SizedBox(height: 16),
 
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Row(
-            children: [
-              const Icon(FontAwesomeIcons.tag, color: primaryColor, size: 24),
-              const SizedBox(width: 12),
-              Text(
-                'Categorias Personalizadas',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+          // Avatar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  backgroundImage: widget.user.photoUrl != null
+                      ? NetworkImage(widget.user.photoUrl!)
+                      : null,
+                  child: widget.user.photoUrl == null
+                      ? Text(
+                          widget.user.name.isNotEmpty
+                              ? widget.user.name[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        )
+                      : null,
+                ),
+                if (_isEditing)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.penToSquare,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Formulário ou Visualização
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              children: [
+                if (_isEditing)
+                  Column(
+                    children: [
+                      TextField(
+                        controller: _nameController,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          labelText: 'Nome de Exibição',
+                          prefixIcon: const Icon(FontAwesomeIcons.user),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _emailController,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          labelText: 'E-mail',
+                          prefixIcon: const Icon(FontAwesomeIcons.envelope),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Botões de Ação
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isEditing = false;
+                                  _nameController.text = widget.user.name;
+                                  _emailController.text = widget.user.email;
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(FontAwesomeIcons.xmark),
+                              label: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _save,
+                              style: ElevatedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(FontAwesomeIcons.floppyDisk),
+                              label: const Text('Salvar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    children: [
+                      Text(
+                        widget.user.name,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.user.email,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Chip(
+                        label: Text(
+                          widget.user.role == 'owner'
+                              ? 'Proprietário'
+                              : widget.user.role == 'collaborator'
+                              ? 'Colaborador'
+                              : 'Visualizador',
+                        ),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        side: BorderSide.none,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(FontAwesomeIcons.penToSquare),
+                          label: const Text('Editar Perfil'),
+                          onPressed: () => setState(() => _isEditing = true),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+          const Divider(),
+
+          // Admin Options
+          if (widget.isAdmin) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(FontAwesomeIcons.userPlus),
+                      label: const Text('Convidar Colaborador'),
+                      onPressed: widget.onInviteCollaborator,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(
+                      FontAwesomeIcons.moneyBill,
+                      color: primaryColor,
+                    ),
+                    title: const Text('Gerenciar Salário'),
+                    trailing: const Icon(FontAwesomeIcons.chevronRight),
+                    onTap: _showSalaryDialog,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
+
+          // Gerenciar Colaboradores
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(
+                    FontAwesomeIcons.peopleGroup,
+                    color: primaryColor,
+                  ),
+                  title: const Text('Gerenciar Colaboradores'),
+                  trailing: const Icon(FontAwesomeIcons.chevronRight),
+                  onTap: widget.onManageCollaborators,
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+
+          // Colaboradores Ativos
+          if (widget.isAdmin && widget.collaborators.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Colaboradores Ativos',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-        Builder(
-          builder: (context) {
-            final customCats = widget.categories.where((c) {
-              return !mockCategoriesData.any((m) => m['id'] == c.id);
-            }).toList();
-
-            if (customCats.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(
-                  'Nenhuma categoria personalizada.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              );
-            }
-
-            return Column(
-              children: customCats.map((cat) {
-                final isIncome = cat.type == 'income';
-                final color = isIncome ? incomeColor : expenseColor;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        iconMap[cat.iconName] ?? Icons.circle,
-                        color: color,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(cat.name),
-                    subtitle: Text(isIncome ? 'Entrada' : 'Saída'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          onPressed: () => _showEditCategoryDialog(cat),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                children: widget.collaborators
+                    .map(
+                      (collab) => Card(
+                        margin: const EdgeInsets.only(bottom: 8.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            size: 20,
-                            color: expenseColor,
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            child: Text(
+                              collab.name.isNotEmpty
+                                  ? collab.name[0].toUpperCase()
+                                  : '?',
+                            ),
                           ),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                title: const Text('Confirmar Exclusão'),
-                                content: Text(
-                                  'Deseja realmente excluir a categoria "${cat.name}"?',
-                                ),
-                                actions: [
-                                  TextButton.icon(
-                                    icon: const Icon(FontAwesomeIcons.xmark),
-                                    label: const Text('Cancelar'),
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                  ),
-                                  ElevatedButton.icon(
-                                    icon: const Icon(FontAwesomeIcons.trash),
-                                    label: const Text('Excluir'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: expenseColor,
-                                    ),
-                                    onPressed: () {
-                                      widget.onDeleteCategory(cat.id);
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                ],
+                          title: Text(collab.name),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(collab.email),
+                              Text(
+                                'Permissões: ${collab.role == 'owner'
+                                    ? 'Proprietário'
+                                    : collab.role == 'collaborator'
+                                    ? 'Colaborador'
+                                    : 'Visualizador'}',
+                                style: const TextStyle(fontSize: 12),
                               ),
-                            );
-                          },
+                            ],
+                          ),
+                          trailing: Chip(
+                            label: const Text('Ativo'),
+                            backgroundColor: successColor.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
                         ),
-                      ],
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // Categorias Personalizadas
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  const Icon(
+                    FontAwesomeIcons.tag,
+                    color: primaryColor,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Categorias Personalizadas',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-
-        ListTile(
-          leading: const Icon(FontAwesomeIcons.doorOpen, color: expenseColor),
-          title: const Text(
-            'Sair da Conta',
-            style: TextStyle(color: expenseColor),
+                ],
+              ),
+            ),
           ),
-          onTap: widget.onLogout,
-        ),
-        const SizedBox(height: 80), // Space for FAB/BottomBar
-      ],
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Builder(
+              builder: (context) {
+                final customCats = widget.categories.where((c) {
+                  return !mockCategoriesData.any((m) => m['id'] == c.id);
+                }).toList();
+
+                if (customCats.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Text(
+                      'Nenhuma categoria personalizada.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: customCats.map((cat) {
+                    final isIncome = cat.type == 'income';
+                    final color = isIncome ? incomeColor : expenseColor;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            iconMap[cat.iconName] ?? Icons.circle,
+                            color: color,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(cat.name),
+                        subtitle: Text(isIncome ? 'Entrada' : 'Saída'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                FontAwesomeIcons.penToSquare,
+                                size: 20,
+                              ),
+                              onPressed: () => _showEditCategoryDialog(cat),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: expenseColor,
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: const Text('Confirmar Exclusão'),
+                                    content: Text(
+                                      'Deseja realmente excluir a categoria "${cat.name}"?',
+                                    ),
+                                    actions: [
+                                      TextButton.icon(
+                                        icon: const Icon(
+                                          FontAwesomeIcons.xmark,
+                                        ),
+                                        label: const Text('Cancelar'),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                      ),
+                                      ElevatedButton.icon(
+                                        icon: const Icon(
+                                          FontAwesomeIcons.trash,
+                                        ),
+                                        label: const Text('Excluir'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: expenseColor,
+                                        ),
+                                        onPressed: () {
+                                          widget.onDeleteCategory(cat.id);
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: ListTile(
+              leading: const Icon(
+                FontAwesomeIcons.doorOpen,
+                color: expenseColor,
+              ),
+              title: const Text(
+                'Sair da Conta',
+                style: TextStyle(color: expenseColor),
+              ),
+              onTap: widget.onLogout,
+            ),
+          ),
+          const SizedBox(height: 80), // Space for FAB/BottomBar
+        ],
+      ),
     );
   }
 }
@@ -3223,20 +3408,36 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ScaleTransition(
-                scale: _scale,
-                child: SizedBox(
-                  width: 112,
-                  height: 112,
-                  // Usar SvgPicture.asset é mais eficiente e recomendado, especialmente para web.
-                  child: const AppLogo(
-                    width: 112,
-                    height: 112,
-                    fit: BoxFit.contain,
-                  ),
+              // Logo com loading ao redor
+              SizedBox(
+                width: 150,
+                height: 150,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Circular Progress ao redor
+                    CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: color,
+                      strokeCap: StrokeCap.round,
+                    ),
+                    // Logo no centro
+                    ScaleTransition(
+                      scale: _scale,
+                      child: SizedBox(
+                        width: 112,
+                        height: 112,
+                        child: const AppLogo(
+                          width: 112,
+                          height: 112,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 24),
               Text(
                 'Finanças App',
                 style: TextStyle(
@@ -3244,12 +3445,6 @@ class _SplashScreenState extends State<SplashScreen>
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: color),
               ),
             ],
           ),
@@ -3987,22 +4182,22 @@ class _MainAppState extends State<MainApp> {
 
   // --- Funções Auxiliares ---
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: expenseColor,
-        duration: const Duration(seconds: 3),
-      ),
+    showCenteredAlertModal(
+      context: context,
+      title: 'Erro',
+      message: message,
+      icon: FontAwesomeIcons.circleExclamation,
+      iconColor: expenseColor,
     );
   }
 
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: successColor,
-        duration: const Duration(seconds: 3),
-      ),
+    showCenteredAlertModal(
+      context: context,
+      title: 'Sucesso',
+      message: message,
+      icon: FontAwesomeIcons.circleCheck,
+      iconColor: successColor,
     );
   }
 
@@ -4228,88 +4423,487 @@ class _MainAppState extends State<MainApp> {
 
   // --- Tela de Acesso Negado (Guest) ---
   Widget _buildGuestScreen() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(FontAwesomeIcons.lock, size: 60, color: primaryColor),
-            const SizedBox(height: 20),
-            const Text(
-              'Bem-vindo ao FinançasApp',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Faça login com sua conta Google para acessar seu painel de controle financeiro e gerenciar transações.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
-              icon: const Icon(FontAwesomeIcons.google),
-              label: const Text('Entrar com Google'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
-            if (!kIsWeb)
-              ElevatedButton.icon(
-                onPressed: _biometricLogin,
-                icon: const Icon(FontAwesomeIcons.fingerprint),
-                label: const Text('Entrar com Biometria'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 15,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            children: [
+              // Espaço no topo
+              const SizedBox(height: 40),
+
+              // Logo e Boas-vindas
+              Center(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: const AppLogo(
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Bem-vindo ao FinançasApp',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Gerencie suas finanças com facilidade',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            // O botão de mock login só é exibido se o principal usar o Google real,
-            // para evitar redundância na tela de teste.
-            if (!useMockAuth) ...[
-              const SizedBox(height: 15),
-              TextButton.icon(
-                icon: const Icon(FontAwesomeIcons.user),
-                label: Text(
-                  'Ou Entrar como Teste (Mock)',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 14,
+
+              // Espaço
+              const SizedBox(height: 40),
+
+              // Formulário de Email e Senha
+              Column(
+                children: [
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: 'E-mail',
+                      prefixIcon: const Icon(FontAwesomeIcons.envelope),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Senha',
+                      prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Botão Entrar
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (emailController.text.isNotEmpty &&
+                            passwordController.text.isNotEmpty) {
+                          // Simulação de login com email/senha
+                          _mockLogin();
+                        } else {
+                          showCenteredAlertModal(
+                            context: context,
+                            title: 'Campos Vazios',
+                            message: 'Preencha email e senha',
+                            icon: FontAwesomeIcons.circleExclamation,
+                            iconColor: expenseColor,
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(FontAwesomeIcons.rightToBracket),
+                      label: const Text(
+                        'Entra',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Espaço
+              const SizedBox(height: 24),
+
+              // Divider com texto
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'ou',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Botão Google
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(FontAwesomeIcons.google),
+                  label: const Text(
+                    'Entrar com Google',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
-                onPressed: _mockLogin,
               ),
+
+              if (!kIsWeb) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _biometricLogin,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(FontAwesomeIcons.fingerprint),
+                    label: const Text(
+                      'Entrar com Biometria',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Botão Cadastre-se
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Não tem conta? ',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(body: _buildSignUpScreen()),
+                        ),
+                      );
+                    },
+                    icon: const Icon(FontAwesomeIcons.userPlus),
+                    label: const Text(
+                      'Cadastre-se',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Espaço final
+              const SizedBox(height: 40),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // --- Modal de Nova Transação ---
+  // --- Tela de Cadastro (Sign Up) ---
+  Widget _buildSignUpScreen() {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            children: [
+              // Espaço no topo
+              const SizedBox(height: 40),
+
+              // Voltar e Título
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(FontAwesomeIcons.chevronLeft),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Criar Conta',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Descrição
+              Text(
+                'Cadastre-se para começar a gerenciar suas finanças',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+
+              // Espaço
+              const SizedBox(height: 30),
+
+              // Formulário
+              Column(
+                children: [
+                  // Nome
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome Completo',
+                      prefixIcon: const Icon(FontAwesomeIcons.user),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Email
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: 'E-mail',
+                      prefixIcon: const Icon(FontAwesomeIcons.envelope),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Senha
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Senha',
+                      prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      helperText: 'Mínimo 6 caracteres',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Confirmar Senha
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar Senha',
+                      prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Botão Cadastrar
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // Validações
+                        if (nameController.text.isEmpty) {
+                          showCenteredAlertModal(
+                            context: context,
+                            title: 'Erro',
+                            message: 'Preencha o nome completo',
+                            icon: FontAwesomeIcons.circleExclamation,
+                            iconColor: expenseColor,
+                          );
+                          return;
+                        }
+                        if (emailController.text.isEmpty ||
+                            !emailController.text.contains('@')) {
+                          showCenteredAlertModal(
+                            context: context,
+                            title: 'Erro',
+                            message: 'E-mail inválido',
+                            icon: FontAwesomeIcons.circleExclamation,
+                            iconColor: expenseColor,
+                          );
+                          return;
+                        }
+                        if (passwordController.text.length < 6) {
+                          showCenteredAlertModal(
+                            context: context,
+                            title: 'Erro',
+                            message: 'Senha deve ter no mínimo 6 caracteres',
+                            icon: FontAwesomeIcons.circleExclamation,
+                            iconColor: expenseColor,
+                          );
+                          return;
+                        }
+                        if (passwordController.text !=
+                            confirmPasswordController.text) {
+                          showCenteredAlertModal(
+                            context: context,
+                            title: 'Erro',
+                            message: 'As senhas não correspondem',
+                            icon: FontAwesomeIcons.circleExclamation,
+                            iconColor: expenseColor,
+                          );
+                          return;
+                        }
+
+                        // Se passou em todas as validações
+                        showCenteredAlertModal(
+                          context: context,
+                          title: 'Sucesso',
+                          message:
+                              'Conta criada com sucesso! Você pode fazer login agora.',
+                          icon: FontAwesomeIcons.circleCheck,
+                          iconColor: successColor,
+                        );
+
+                        // Navegar de volta após 2 segundos
+                        Future.delayed(const Duration(seconds: 2), () {
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(FontAwesomeIcons.userPlus),
+                      label: const Text(
+                        'Cadastrar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Já tem conta?
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Já tem conta? ',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Faça login',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Espaço final
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showNewTransactionModal([
     Transaction? transactionToEdit,
     String? defaultFilterType,
