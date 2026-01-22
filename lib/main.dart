@@ -3653,10 +3653,7 @@ class _MyAppState extends State<MyApp> {
           labelColor: Color(0xFF60A5FA),
           unselectedLabelColor: Color(0xFF9CA3AF),
           indicatorColor: Color(0xFF60A5FA),
-          labelStyle: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           unselectedLabelStyle: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -4693,7 +4690,9 @@ class _MainAppState extends State<MainApp> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: useMockAuth ? () => _mockLogin() : _signInWithGoogle,
+                  onPressed: useMockAuth
+                      ? () => _mockLogin()
+                      : _signInWithGoogle,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: Colors.white,
@@ -5240,7 +5239,7 @@ class _MainAppState extends State<MainApp> {
               backgroundColor: Theme.of(context).brightness == Brightness.light
                   ? Colors.white
                   : Theme.of(context).cardTheme.color ??
-                      Theme.of(context).colorScheme.surface,
+                        Theme.of(context).colorScheme.surface,
               onTap: (index) {
                 setState(() => _selectedIndex = index);
               },

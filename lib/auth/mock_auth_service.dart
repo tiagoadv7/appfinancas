@@ -12,11 +12,13 @@ class MockAuthService implements AuthService {
   Future<User?> signIn({String? email, String? password}) async {
     // Simula autenticação rápida
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     // Usar email preenchido ou padrão
-    final userEmail = email?.isNotEmpty == true ? email : 'tiago@appfinancas.com';
+    final userEmail = email?.isNotEmpty == true
+        ? email
+        : 'tiago@appfinancas.com';
     final userName = userEmail?.split('@').first ?? 'Usuário';
-    
+
     _user = User(
       id: 'mock-user-${DateTime.now().millisecondsSinceEpoch}',
       email: userEmail!,
