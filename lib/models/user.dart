@@ -4,6 +4,7 @@ class User {
   final String name;
   final String? photoUrl;
   final String role; // 'owner', 'collaborator', 'viewer'
+  final double salary; // Salário do usuário
 
   User({
     required this.id,
@@ -11,6 +12,7 @@ class User {
     required this.name,
     this.photoUrl,
     this.role = 'collaborator',
+    this.salary = 0.0,
   });
 
   User.fromMap(Map<String, dynamic> data)
@@ -18,7 +20,8 @@ class User {
       email = data['email'],
       name = data['name'],
       photoUrl = data['photoUrl'],
-      role = data['role'] ?? 'collaborator';
+      role = data['role'] ?? 'collaborator',
+      salary = (data['salary'] as num?)?.toDouble() ?? 0.0;
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -26,5 +29,6 @@ class User {
     'name': name,
     'photoUrl': photoUrl,
     'role': role,
+    'salary': salary,
   };
 }

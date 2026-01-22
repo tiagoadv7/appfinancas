@@ -16,7 +16,7 @@ class GoogleAuthService implements AuthService {
   User? get currentUser => _user;
 
   @override
-  Future<User?> signIn() async {
+  Future<User?> signIn({String? email, String? password}) async {
     try {
       final account = await _googleSignIn.signIn();
       if (account == null) return null;

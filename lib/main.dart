@@ -289,9 +289,9 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(20),
-                        blurRadius: 8,
-                        offset: const Offset(0, -2),
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, -4),
                       ),
                     ],
                   ),
@@ -2431,6 +2431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       name: _nameController.text.trim(),
       photoUrl: widget.user.photoUrl,
       role: widget.user.role,
+      salary: widget.user.salary,
     );
 
     widget.onUpdateUser(updatedUser);
@@ -2706,7 +2707,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSalaryDialog() {
-    TextEditingController salaryController = TextEditingController();
+    TextEditingController salaryController = TextEditingController(
+      text: widget.user.salary.toString(),
+    );
 
     showDialog(
       context: context,
@@ -2744,17 +2747,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (salaryController.text.isNotEmpty) {
+                  final newSalary =
+                      double.tryParse(salaryController.text) ?? 0.0;
+
+                  // Criar usuário atualizado com novo salário
+                  final updatedUser = User(
+                    id: widget.user.id,
+                    email: widget.user.email,
+                    name: widget.user.name,
+                    photoUrl: widget.user.photoUrl,
+                    role: widget.user.role,
+                    salary: newSalary,
+                  );
+
+                  // Notificar widget pai
+                  widget.onUpdateUser(updatedUser);
+
+                  // Fechar diálogo
+                  Navigator.of(context).pop();
+
+                  // Mostrar sucesso
                   showCenteredAlertModal(
                     context: context,
                     title: 'Sucesso',
                     message:
-                        'Salário atualizado para: R\$ ${salaryController.text}',
+                        'Salário atualizado para: R\$ ${NumberFormat('#,##0.00', 'pt_BR').format(newSalary)}',
                     icon: FontAwesomeIcons.circleCheck,
                     iconColor: successColor,
                   );
-                  Navigator.of(context).pop();
+                } else {
+                  showCenteredAlertModal(
+                    context: context,
+                    title: 'Erro',
+                    message: 'Digite um valor válido para o salário',
+                    icon: FontAwesomeIcons.circleExclamation,
+                    iconColor: expenseColor,
+                  );
                 }
               },
             ),
@@ -3518,12 +3548,28 @@ class _MyAppState extends State<MyApp> {
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
           foregroundColor: primaryColor,
-          elevation: 0,
+          elevation: 4,
+          shadowColor: Colors.black12,
+          surfaceTintColor: Colors.white,
           centerTitle: false,
           titleTextStyle: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: primaryColor,
+          ),
+        ),
+        tabBarTheme: TabBarThemeData(
+          indicatorSize: TabBarIndicatorSize.tab,
+          labelColor: primaryColor,
+          unselectedLabelColor: Colors.grey[600],
+          indicatorColor: primaryColor,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
         cardTheme: CardThemeData(
@@ -3600,6 +3646,20 @@ class _MyAppState extends State<MyApp> {
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: Color(0xFF60A5FA),
+          ),
+        ),
+        tabBarTheme: const TabBarThemeData(
+          indicatorSize: TabBarIndicatorSize.tab,
+          labelColor: Color(0xFF60A5FA),
+          unselectedLabelColor: Color(0xFF9CA3AF),
+          indicatorColor: Color(0xFF60A5FA),
+          labelStyle: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
         cardTheme: CardThemeData(
@@ -3790,9 +3850,9 @@ class _MainAppState extends State<MainApp> {
   }
 
   // --- Login Mock para Testes (delegado ao serviço de autenticação) ---
-  void _mockLogin() async {
+  void _mockLogin({String? email, String? password}) async {
     try {
-      final user = await _authService.signIn();
+      final user = await _authService.signIn(email: email, password: password);
       if (user != null) {
         setState(() {
           _currentUser = user;
@@ -3818,6 +3878,7 @@ class _MainAppState extends State<MainApp> {
           email: 'biometric@example.com',
           name: 'Usuário Biométrico',
           role: 'owner',
+          salary: 0.0,
         );
         setState(() {
           _currentUser = user;
@@ -4079,6 +4140,52 @@ class _MainAppState extends State<MainApp> {
                 });
                 Navigator.of(context).pop();
                 _showSuccessSnackBar('Colaborador removido');
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _removeInvitation(String email) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Cancelar Convite'),
+          content: const Text(
+            'Tem certeza que deseja cancelar este convite? O usuário não poderá mais acessar usando este convite.',
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: Text(
+                'Cancelar',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.trash),
+              label: const Text(
+                'Remover Convite',
+                style: TextStyle(
+                  color: expenseColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                setState(() {
+                  _invitations.removeWhere((inv) => inv.email == email);
+                });
+                Navigator.of(context).pop();
+                _showSuccessSnackBar('Convite cancelado');
               },
             ),
           ],
@@ -4516,7 +4623,10 @@ class _MainAppState extends State<MainApp> {
                         if (emailController.text.isNotEmpty &&
                             passwordController.text.isNotEmpty) {
                           // Simulação de login com email/senha
-                          _mockLogin();
+                          _mockLogin(
+                            email: emailController.text,
+                            password: passwordController.text,
+                          );
                         } else {
                           showCenteredAlertModal(
                             context: context,
@@ -4535,7 +4645,7 @@ class _MainAppState extends State<MainApp> {
                       ),
                       icon: const Icon(FontAwesomeIcons.rightToBracket),
                       label: const Text(
-                        'Entra',
+                        'Entrar',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -4583,7 +4693,7 @@ class _MainAppState extends State<MainApp> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: useMockAuth ? _mockLogin : _signInWithGoogle,
+                  onPressed: useMockAuth ? () => _mockLogin() : _signInWithGoogle,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: Colors.white,
@@ -5127,7 +5237,10 @@ class _MainAppState extends State<MainApp> {
                 BottomBarItemData(icon: Icons.person, label: 'Perfil'),
               ],
               selectedIndex: _selectedIndex,
-              backgroundColor: Theme.of(context).colorScheme.surface,
+              backgroundColor: Theme.of(context).brightness == Brightness.light
+                  ? Colors.white
+                  : Theme.of(context).cardTheme.color ??
+                      Theme.of(context).colorScheme.surface,
               onTap: (index) {
                 setState(() => _selectedIndex = index);
               },
@@ -5223,7 +5336,17 @@ class _MainAppState extends State<MainApp> {
                               subtitle: Text(
                                 '${inv.role} • Enviado por ${inv.createdBy} em ${formatDate(inv.createdAt)}',
                               ),
-                              trailing: const Icon(FontAwesomeIcons.clock),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.orange,
+                                ),
+                                tooltip: 'Cancelar convite',
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _removeInvitation(inv.email);
+                                },
+                              ),
                             ),
                           ),
                     ],
