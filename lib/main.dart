@@ -188,13 +188,13 @@ class Category {
     : id = data['id'],
       name = data['name'],
       type = data['type'],
-      iconName = data['icon'];
+      iconName = data['iconName'] ?? data['icon'] ?? 'Porquinho';
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
     'type': type,
-    'icon': iconName,
+    'iconName': iconName,
   };
 }
 
@@ -549,16 +549,16 @@ String formatDate(DateTime date) {
 
 // --- Dados Mock (Simulando Banco de Dados) ---
 final List<Map<String, dynamic>> mockCategoriesData = [
-  {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'icon': 'Maleta'},
-  {'id': 'cat-2', 'name': 'Alimentação', 'type': 'expense', 'icon': 'Talheres'},
-  {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'icon': 'Casa'},
+  {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'iconName': 'Maleta'},
+  {'id': 'cat-2', 'name': 'Alimentação', 'type': 'expense', 'iconName': 'Talheres'},
+  {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'iconName': 'Casa'},
   {
     'id': 'cat-4',
     'name': 'Investimentos',
     'type': 'income',
-    'icon': 'Porquinho',
+    'iconName': 'Porquinho',
   },
-  {'id': 'cat-5', 'name': 'Educação', 'type': 'expense', 'icon': 'Escola'},
+  {'id': 'cat-5', 'name': 'Educação', 'type': 'expense', 'iconName': 'Escola'},
 ];
 
 final List<Map<String, dynamic>> mockTransactionsData = [
@@ -685,6 +685,60 @@ class AppLogo extends StatelessWidget {
       // On error, the `placeholderBuilder` will show the PNG fallback.
     );
   }
+}
+
+// --- Custom Loader Painter (similar ao HTML splash) ---
+class _CustomLoaderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 2;
+
+    // Desenha o círculo em quadrantes com cores diferentes
+    // Top: Amarelo (#f8c800)
+    paint.color = const Color(0xFFF8C800);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2, // Top (90 graus)
+      3.14159 / 2, // 180 graus
+      false,
+      paint,
+    );
+
+    // Bottom: Azul (#0097D7)
+    paint.color = const Color(0xFF0097D7);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      3.14159 / 2, // Bottom (270 graus)
+      3.14159 / 2, // 180 graus
+      false,
+      paint,
+    );
+
+    // Resto: Preto
+    paint.color = const Color(0xFF000000);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      0, // Direita
+      3.14159 / 2, // 90 graus
+      false,
+      paint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      3.14159, // Esquerda
+      3.14159 / 2, // 90 graus
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CustomLoaderPainter oldDelegate) => false;
 }
 
 class NewTransactionForm extends StatefulWidget {
@@ -1036,7 +1090,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                         'id': newId,
                         'name': result['name']!,
                         'type': result['type']!,
-                        'icon': result['icon'] ?? 'Porquinho',
+                        'iconName': result['icon'] ?? 'Porquinho',
                       });
                       // Adiciona à lista via callback
                       widget.onCategoryAdded?.call(newCat);
@@ -1457,27 +1511,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           padding: const EdgeInsets.only(bottom: 16.0),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
               if (widget.filterType == 'all') {
-                return GridView.count(
-                  crossAxisCount: isMobile ? 1 : 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: isMobile ? 4.0 : 4.5,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
+                // Side-by-side layout: left=Saídas (expense), right=Entradas (income)
+                return Row(
                   children: [
-                    SummaryCard(
-                      title: 'Total de Entradas',
-                      value: totalIncome,
-                      color: incomeColor,
-                      icon: Icons.trending_up,
+                    // Left: Saídas (Expenses)
+                    Expanded(
+                      child: SummaryCard(
+                        title: 'Saídas',
+                        value: totalExpense,
+                        color: expenseColor,
+                        icon: Icons.trending_down,
+                      ),
                     ),
-                    SummaryCard(
-                      title: 'Total de Saídas',
-                      value: totalExpense,
-                      color: expenseColor,
-                      icon: Icons.trending_down,
+                    const SizedBox(width: 16),
+                    // Right: Entradas (Income)
+                    Expanded(
+                      child: SummaryCard(
+                        title: 'Entradas',
+                        value: totalIncome,
+                        color: incomeColor,
+                        icon: Icons.trending_up,
+                      ),
                     ),
                   ],
                 );
@@ -1615,7 +1670,7 @@ class SummaryCard extends StatelessWidget {
                               Text(
                                 title,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 16,
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
@@ -1626,7 +1681,7 @@ class SummaryCard extends StatelessWidget {
                               Text(
                                 formatCurrency(value),
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 28,
                                   fontWeight: FontWeight.w900,
                                   color: valueColor,
                                 ),
@@ -1645,7 +1700,7 @@ class SummaryCard extends StatelessWidget {
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 20,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1654,7 +1709,7 @@ class SummaryCard extends StatelessWidget {
                       Text(
                         formatCurrency(value),
                         style: TextStyle(
-                          fontSize: 26,
+                          fontSize: 40,
                           fontWeight: FontWeight.w900,
                           color: valueColor,
                         ),
@@ -1883,7 +1938,7 @@ class _PieChartPainter extends CustomPainter {
 }
 
 // --- Componente de Resumo por Categoria ---
-class CategorySummaryCard extends StatelessWidget {
+class CategorySummaryCard extends StatefulWidget {
   final String title;
   final String icon;
   final List<Map<String, dynamic>> data;
@@ -1898,102 +1953,134 @@ class CategorySummaryCard extends StatelessWidget {
   });
 
   @override
+  State<CategorySummaryCard> createState() => _CategorySummaryCardState();
+}
+
+class _CategorySummaryCardState extends State<CategorySummaryCard> {
+  bool _isScrollEnabled = false;
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
+      child: GestureDetector(
+        onTapDown: (_) {
+          setState(() => _isScrollEnabled = true);
+        },
+        onTapUp: (_) {
+          setState(() => _isScrollEnabled = false);
+        },
+        onTapCancel: () {
+          setState(() => _isScrollEnabled = false);
+        },
+        child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(iconMap[icon], color: color),
+                Icon(iconMap[widget.icon], color: widget.color),
                 const SizedBox(width: 8),
                 Text(
-                  title,
+                  widget.title,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: color,
+                    color: widget.color,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 15),
-            SizedBox(
-              height: 200,
-              child: data.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Nenhuma transação de ${title.toLowerCase()} registrada.',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: data.length,
-                      itemBuilder: (context, index) {
-                        final cat = data[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: Row(
-                            children: [
-                              // Ícone da Categoria
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: color.withAlpha(26),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  iconMap[cat['icon']],
-                                  color: color,
-                                  size: 20,
-                                ),
+            if (widget.data.isEmpty)
+              Center(
+                child: Text(
+                  'Nenhuma transação de ${widget.title.toLowerCase()} registrada.',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              SingleChildScrollView(
+                child: Column(
+                  children: List.generate(
+                    widget.data.length,
+                    (index) {
+                      final cat = widget.data[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10.0),
+                        child: Row(
+                          children: [
+                            // Ícone da Categoria
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: widget.color.withAlpha(26),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      cat['name'] as String,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
+                              child: Icon(
+                                iconMap[cat['icon']],
+                                color: widget.color,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cat['name'] as String,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
                                     ),
-                                    Text(
-                                      '${cat['count']} transações',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
+                                  ),
+                                  Text(
+                                    '${cat['count']} transações',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              // Valor
-                              Text(
-                                formatCurrency(
-                                  cat['amount'] as double,
-                                ).replaceAll('-', ''), // Remove sinal
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: color,
-                                ),
+                            ),
+                            // Valor
+                            Text(
+                              formatCurrency(
+                                cat['amount'] as double,
+                              ).replaceAll('-', ''), // Remove sinal
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: widget.color,
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -2171,7 +2258,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Column(
       key: ValueKey(_selectedDate),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header Card
         Card(
@@ -2274,7 +2361,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         if (monthlyTransactions.isEmpty)
           _buildEmptyState(context)
         else
-          _buildCharts(context, pieData, sortedIncomeCats, sortedExpenseCats),
+          Flexible(
+            child: SingleChildScrollView(
+              child: _buildCharts(context, pieData, sortedIncomeCats, sortedExpenseCats),
+            ),
+          ),
 
         const SizedBox(height: 80), // Espaço para o FAB
       ],
@@ -2331,7 +2422,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               crossAxisCount: isMobile ? 1 : 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: isMobile ? 1.0 : 0.9,
+              childAspectRatio: double.infinity,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
@@ -2343,7 +2434,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 CategorySummaryCard(
                   title: 'Saídas',
-                  icon: 'Dinheiro',
+                  icon: 'SetaBaixoTendencia',
                   data: sortedExpenseCats.take(5).toList(),
                   color: expenseColor,
                 ),
@@ -2700,7 +2791,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'id': category.id,
         'name': result['name']!,
         'type': result['type']!,
-        'icon': result['icon']!,
+        'iconName': result['icon']!,
       });
       widget.onEditCategory(updatedCat);
     }
@@ -3331,8 +3422,9 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late final AnimationController _rotationController;
   late final Animation<double> _scale;
 
   @override
@@ -3342,8 +3434,13 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _controller.forward();
+    _rotationController.repeat();
   }
 
   @override
@@ -3425,12 +3522,12 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
     return Scaffold(
       body: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -3438,18 +3535,20 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo com loading ao redor
+              // Logo com loading ao redor (custom circular loader)
               SizedBox(
                 width: 150,
                 height: 150,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Circular Progress ao redor
-                    CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: color,
-                      strokeCap: StrokeCap.round,
+                    // Custom Circular Loader ao redor com rotacao
+                    RotationTransition(
+                      turns: _rotationController,
+                      child: CustomPaint(
+                        painter: _CustomLoaderPainter(),
+                        size: const Size(150, 150),
+                      ),
                     ),
                     // Logo no centro
                     ScaleTransition(
@@ -3796,6 +3895,8 @@ class _MainAppState extends State<MainApp> {
     final prefs = await SharedPreferences.getInstance();
     if (_currentUser != null) {
       await prefs.setString('currentUser', jsonEncode(_currentUser!.toMap()));
+      // Salvar o email do usuário para uso em biometria
+      await prefs.setString('biometricUserEmail', _currentUser!.email);
     }
     await prefs.setString(
       'transactions',
@@ -3813,9 +3914,13 @@ class _MainAppState extends State<MainApp> {
     await Future.delayed(const Duration(milliseconds: 1500));
 
     setState(() {
-      _categories = mockCategoriesData
-          .map((data) => Category.fromMap(data))
-          .toList();
+      // Se não houver categorias carregadas do cache, use as categorias padrão
+      if (_categories.isEmpty) {
+        _categories = mockCategoriesData
+            .map((data) => Category.fromMap(data))
+            .toList();
+      }
+      // Se ainda estiver vazio, tenta novamente
       if (_categories.isEmpty) {
         _categories = mockCategoriesData
             .map((data) => Category.fromMap(data))
@@ -3864,25 +3969,59 @@ class _MainAppState extends State<MainApp> {
 
   Future<void> _biometricLogin() async {
     try {
-      // Simulação de biometria (pacote removido para compatibilidade)
-      // Em um cenário real, descomente e use o pacote local_auth
+      // Try to authenticate using device biometrics (fingerprint, face, iris)
+      // This requires the local_auth package to be added to pubspec.yaml
+      // For now, we use a mock implementation that simulates authentication
+      
+      // In a production app, uncomment the code below after adding local_auth:
+      /*
+      final LocalAuthentication auth = LocalAuthentication();
+      final List<BiometricType> availableBiometrics = 
+          await auth.getAvailableBiometrics();
+      
+      bool authenticated = false;
+      if (availableBiometrics.isNotEmpty) {
+        try {
+          authenticated = await auth.authenticate(
+            localizedReason: 'Autentique-se com sua biometria',
+            options: const AuthenticationOptions(
+              stickyAuth: true,
+              biometricOnly: true,
+            ),
+          );
+        } on PlatformException catch (e) {
+          _showErrorSnackBar('Erro de biometria: ${e.message}');
+          return;
+        }
+      } else {
+        _showErrorSnackBar('Nenhuma biometria disponível no dispositivo');
+        return;
+      }
+      */
+      
+      // Mock implementation for testing
+      await Future.delayed(const Duration(milliseconds: 1500));
       bool authenticated = true;
 
       if (authenticated) {
-        // Simulate login with a mock user
-        final user = User(
-          id: 'biometric-user',
-          email: 'biometric@example.com',
-          name: 'Usuário Biométrico',
-          role: 'owner',
-          salary: 0.0,
-        );
-        setState(() {
-          _currentUser = user;
-          _selectedIndex = 0;
-        });
-        _saveCachedData();
-        _showWelcomeDialog(user);
+        // Recuperar o email do usuário armazenado e fazer login via auth service
+        final prefs = await SharedPreferences.getInstance();
+        final savedEmail = prefs.getString('biometricUserEmail');
+        
+        if (savedEmail != null && savedEmail.isNotEmpty) {
+          // Fazer login com o mesmo auth service usado no Google
+          final user = await _authService.signIn(email: savedEmail);
+          if (user != null) {
+            setState(() {
+              _currentUser = user;
+              _selectedIndex = 0;
+            });
+            _saveCachedData();
+            _showWelcomeDialog(user);
+          }
+        } else {
+          _showErrorSnackBar('Nenhum usuário cadastrado para biometria');
+        }
       }
     } catch (e) {
       _showErrorSnackBar('Erro na autenticação biométrica: $e');
@@ -4329,7 +4468,7 @@ class _MainAppState extends State<MainApp> {
         'id': 'fallback',
         'name': 'Sem Categoria',
         'type': 'expense',
-        'icon': 'DollarSign',
+        'iconName': 'DollarSign',
       }),
     );
   }
@@ -5181,9 +5320,9 @@ class _MainAppState extends State<MainApp> {
                   ),
                 ),
                 // Aba 1: Extrato
-                SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SingleChildScrollView(
                     child: TransactionsScreen(
                       transactions: _transactions,
                       filterType: 'all',
@@ -5196,13 +5335,11 @@ class _MainAppState extends State<MainApp> {
                   ),
                 ),
                 // Aba 2: Relatórios
-                SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: ReportsScreen(
-                      transactions: _transactions,
-                      getCategoryById: _getCategoryById,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ReportsScreen(
+                    transactions: _transactions,
+                    getCategoryById: _getCategoryById,
                   ),
                 ),
                 // Aba 3: Perfil
