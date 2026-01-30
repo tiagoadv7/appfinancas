@@ -550,7 +550,12 @@ String formatDate(DateTime date) {
 // --- Dados Mock (Simulando Banco de Dados) ---
 final List<Map<String, dynamic>> mockCategoriesData = [
   {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'iconName': 'Maleta'},
-  {'id': 'cat-2', 'name': 'Alimentação', 'type': 'expense', 'iconName': 'Talheres'},
+  {
+    'id': 'cat-2',
+    'name': 'Alimentação',
+    'type': 'expense',
+    'iconName': 'Talheres',
+  },
   {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'iconName': 'Casa'},
   {
     'id': 'cat-4',
@@ -1766,17 +1771,55 @@ class ChartCard extends StatelessWidget {
   }
 }
 
-// --- Componente de Gráfico de Pizza (Substituindo Barras) ---
-class AnnualPieChart extends StatelessWidget {
+// --- Componente de Gráfico de Pizza (Melhorado com Animação - React Style) ---
+class AnnualPieChart extends StatefulWidget {
   final List<Map<String, dynamic>> data;
 
   const AnnualPieChart({super.key, required this.data});
 
   @override
+  State<AnnualPieChart> createState() => _AnnualPieChartState();
+}
+
+class _AnnualPieChartState extends State<AnnualPieChart>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _animation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(AnnualPieChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.data != oldWidget.data) {
+      _controller.reset();
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     double totalIncome = 0;
     double totalExpense = 0;
-    for (var d in data) {
+    for (var d in widget.data) {
       totalIncome += (d['income'] as double);
       totalExpense += (d['expense'] as double);
     }
@@ -1786,66 +1829,72 @@ class AnnualPieChart extends StatelessWidget {
       return const Center(child: Text('Sem dados para exibir o gráfico.'));
     }
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final size = min(constraints.maxWidth, constraints.maxHeight);
-              return Center(
-                child: SizedBox(
-                  width: size,
-                  height: size,
-                  child: CustomPaint(
-                    painter: _PieChartPainter(
-                      income: totalIncome,
-                      expense: totalExpense,
-                      total: total,
-                      incomeColor: incomeColor,
-                      expenseColor: expenseColor,
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = min(constraints.maxWidth, constraints.maxHeight);
+                  return Center(
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: CustomPaint(
+                        painter: _ModernPieChartPainter(
+                          income: totalIncome,
+                          expense: totalExpense,
+                          total: total,
+                          incomeColor: incomeColor,
+                          expenseColor: expenseColor,
+                          animationValue: _animation.value,
+                        ),
+                      ),
                     ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ModernLegendItem(
+                    color: incomeColor,
+                    label: 'Entradas',
+                    value: totalIncome,
+                    total: total,
                   ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _LegendItem(
-                color: incomeColor,
-                label: 'Entradas',
-                value: totalIncome,
-                total: total,
+                  const SizedBox(height: 16),
+                  _ModernLegendItem(
+                    color: expenseColor,
+                    label: 'Saídas',
+                    value: totalExpense,
+                    total: total,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              _LegendItem(
-                color: expenseColor,
-                label: 'Saídas',
-                value: totalExpense,
-                total: total,
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _LegendItem extends StatelessWidget {
+class _ModernLegendItem extends StatelessWidget {
   final Color color;
   final String label;
   final double value;
   final double total;
 
-  const _LegendItem({
+  const _ModernLegendItem({
     required this.color,
     required this.label,
     required this.value,
@@ -1889,51 +1938,91 @@ class _LegendItem extends StatelessWidget {
   }
 }
 
-class _PieChartPainter extends CustomPainter {
+class _ModernPieChartPainter extends CustomPainter {
   final double income;
   final double expense;
   final double total;
   final Color incomeColor;
   final Color expenseColor;
+  final double animationValue;
 
-  _PieChartPainter({
+  _ModernPieChartPainter({
     required this.income,
     required this.expense,
     required this.total,
     required this.incomeColor,
     required this.expenseColor,
+    required this.animationValue,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = size.width * 0.2;
-    final radius = (size.width - strokeWidth) / 2;
-    final rect = Rect.fromCircle(center: center, radius: radius);
+    final radius = min(size.width, size.height) / 2 * 0.8;
 
-    final Paint paint = Paint()
+    // Sombra do gráfico
+    final shadowPaint = Paint()
+      ..color = Colors.black.withAlpha(25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawCircle(center, radius + 10, shadowPaint);
+
+    // Fundo do gráfico (anel externo leve)
+    final backgroundPaint = Paint()
+      ..color = Colors.grey.withAlpha(25)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+      ..strokeWidth = radius * 0.3;
 
-    // Iniciar de -90 graus (topo)
-    double startAngle = -pi / 2;
+    canvas.drawCircle(center, radius, backgroundPaint);
 
-    // Income Slice
+    // Gradiente para melhor aparência
     final incomeSweep = (income / total) * 2 * pi;
-    paint.color = incomeColor;
-    canvas.drawArc(rect, startAngle, incomeSweep, false, paint);
-
-    // Expense Slice
     final expenseSweep = (expense / total) * 2 * pi;
-    paint.color = expenseColor;
-    canvas.drawArc(rect, startAngle + incomeSweep, expenseSweep, false, paint);
+
+    // Income Slice com animação
+    final incomePaint = Paint()
+      ..color = incomeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.3
+      ..strokeCap = StrokeCap.round;
+
+    final incomeRect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(
+      incomeRect,
+      -pi / 2,
+      incomeSweep * animationValue,
+      false,
+      incomePaint,
+    );
+
+    // Expense Slice com animação
+    final expensePaint = Paint()
+      ..color = expenseColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.3
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      incomeRect,
+      -pi / 2 + (incomeSweep * animationValue),
+      expenseSweep * animationValue,
+      false,
+      expensePaint,
+    );
+
+    // Centro do gráfico (para criar visual em donut)
+    final centerCirclePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, radius * 0.4, centerCirclePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _PieChartPainter oldDelegate) {
+  bool shouldRepaint(covariant _ModernPieChartPainter oldDelegate) {
     return oldDelegate.income != income ||
         oldDelegate.expense != expense ||
-        oldDelegate.total != total;
+        oldDelegate.total != total ||
+        oldDelegate.animationValue != animationValue;
   }
 }
 
@@ -1988,38 +2077,36 @@ class _CategorySummaryCardState extends State<CategorySummaryCard> {
           setState(() => _isScrollEnabled = false);
         },
         child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(iconMap[widget.icon], color: widget.color),
-                const SizedBox(width: 8),
-                Text(
-                  widget.title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: widget.color,
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(iconMap[widget.icon], color: widget.color),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: widget.color,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            if (widget.data.isEmpty)
-              Center(
-                child: Text(
-                  'Nenhuma transação de ${widget.title.toLowerCase()} registrada.',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              )
-            else
-              SingleChildScrollView(
-                child: Column(
-                  children: List.generate(
-                    widget.data.length,
-                    (index) {
+                ],
+              ),
+              const SizedBox(height: 15),
+              if (widget.data.isEmpty)
+                Center(
+                  child: Text(
+                    'Nenhuma transação de ${widget.title.toLowerCase()} registrada.',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                )
+              else
+                SingleChildScrollView(
+                  child: Column(
+                    children: List.generate(widget.data.length, (index) {
                       final cat = widget.data[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10.0),
@@ -2074,13 +2161,12 @@ class _CategorySummaryCardState extends State<CategorySummaryCard> {
                           ],
                         ),
                       );
-                    },
+                    }),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -2363,7 +2449,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
         else
           Flexible(
             child: SingleChildScrollView(
-              child: _buildCharts(context, pieData, sortedIncomeCats, sortedExpenseCats),
+              child: _buildCharts(
+                context,
+                pieData,
+                sortedIncomeCats,
+                sortedExpenseCats,
+              ),
             ),
           ),
 
@@ -2406,8 +2497,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
     List<Map<String, dynamic>> sortedIncomeCats,
     List<Map<String, dynamic>> sortedExpenseCats,
   ) {
+    // Calcular totais do mês
+    double totalIncome = 0;
+    double totalExpense = 0;
+    for (var d in pieData) {
+      totalIncome += (d['income'] as double);
+      totalExpense += (d['expense'] as double);
+    }
+    final totalGeneral = totalIncome + totalExpense;
+
     return Column(
       children: [
+        // 1. Gráfico de Pizza (Topo)
         ChartCard(
           title: 'Distribuição Mensal',
           height: 250,
@@ -2415,6 +2516,47 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
 
         const SizedBox(height: 25),
+
+        // 2. Cards de Resumo de Entradas e Saídas (Novo Layout)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 600;
+            return GridView.count(
+              crossAxisCount: isMobile ? 1 : 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: isMobile ? 2.5 : 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildSummaryCard(
+                  context: context,
+                  title: 'Entradas',
+                  amount: totalIncome,
+                  percentage: totalGeneral > 0
+                      ? (totalIncome / totalGeneral) * 100
+                      : 0,
+                  icon: 'SetaCimaTendencia',
+                  color: incomeColor,
+                ),
+                _buildSummaryCard(
+                  context: context,
+                  title: 'Saídas',
+                  amount: totalExpense,
+                  percentage: totalGeneral > 0
+                      ? (totalExpense / totalGeneral) * 100
+                      : 0,
+                  icon: 'Painel',
+                  color: expenseColor,
+                ),
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 25),
+
+        // 3. Tabelas de Categorias (Entradas e Saídas)
         LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 600;
@@ -2434,7 +2576,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 CategorySummaryCard(
                   title: 'Saídas',
-                  icon: 'SetaBaixoTendencia',
+                  icon: 'Painel',
                   data: sortedExpenseCats.take(5).toList(),
                   color: expenseColor,
                 ),
@@ -2443,6 +2585,90 @@ class _ReportsScreenState extends State<ReportsScreen> {
           },
         ),
       ],
+    );
+  }
+
+  /// Widget para exibir o card resumido de entradas/saídas
+  Widget _buildSummaryCard({
+    required BuildContext context,
+    required String title,
+    required double amount,
+    required double percentage,
+    required String icon,
+    required Color color,
+  }) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withAlpha(30), color.withAlpha(10)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatCurrency(amount),
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(50),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(iconMap[icon], color: color, size: 24),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${percentage.toStringAsFixed(1)}% do total',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3972,7 +4198,7 @@ class _MainAppState extends State<MainApp> {
       // Try to authenticate using device biometrics (fingerprint, face, iris)
       // This requires the local_auth package to be added to pubspec.yaml
       // For now, we use a mock implementation that simulates authentication
-      
+
       // In a production app, uncomment the code below after adding local_auth:
       /*
       final LocalAuthentication auth = LocalAuthentication();
@@ -3998,7 +4224,7 @@ class _MainAppState extends State<MainApp> {
         return;
       }
       */
-      
+
       // Mock implementation for testing
       await Future.delayed(const Duration(milliseconds: 1500));
       bool authenticated = true;
@@ -4007,7 +4233,7 @@ class _MainAppState extends State<MainApp> {
         // Recuperar o email do usuário armazenado e fazer login via auth service
         final prefs = await SharedPreferences.getInstance();
         final savedEmail = prefs.getString('biometricUserEmail');
-        
+
         if (savedEmail != null && savedEmail.isNotEmpty) {
           // Fazer login com o mesmo auth service usado no Google
           final user = await _authService.signIn(email: savedEmail);
@@ -5374,7 +5600,7 @@ class _MainAppState extends State<MainApp> {
               ],
               selectedIndex: _selectedIndex,
               backgroundColor: Theme.of(context).brightness == Brightness.light
-                  ? Colors.white
+                  ? const Color.fromARGB(255, 0, 52, 78)
                   : Theme.of(context).cardTheme.color ??
                         Theme.of(context).colorScheme.surface,
               onTap: (index) {
