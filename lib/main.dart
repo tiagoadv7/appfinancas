@@ -204,13 +204,15 @@ class Transaction {
   final double amount;
   final String categoryId;
   final DateTime date;
+  final bool isPaid;
 
   Transaction.fromMap(Map<String, dynamic> data)
     : id = data['id'],
       description = data['description'],
       amount = data['amount'].toDouble(),
       categoryId = data['categoryId'],
-      date = DateTime.parse(data['date']);
+      date = DateTime.parse(data['date']),
+      isPaid = data['isPaid'] ?? false;
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -218,7 +220,18 @@ class Transaction {
     'amount': amount,
     'categoryId': categoryId,
     'date': date.toIso8601String().substring(0, 10),
+    'isPaid': isPaid,
   };
+
+  // Helper para criar uma cópia com isPaid alterado
+  Transaction copyWith({bool? isPaid}) => Transaction.fromMap({
+    'id': id,
+    'description': description,
+    'amount': amount,
+    'categoryId': categoryId,
+    'date': date.toIso8601String(),
+    'isPaid': isPaid ?? this.isPaid,
+  });
 }
 
 // --- Custom Bottom Bar with Notch ---
@@ -573,6 +586,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 4500.00,
     'categoryId': 'cat-1',
     'date': '2024-10-01',
+    'isPaid': true,
   },
   {
     'id': 't2',
@@ -580,6 +594,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 1500.00,
     'categoryId': 'cat-3',
     'date': '2024-10-05',
+    'isPaid': true,
   },
   {
     'id': 't3',
@@ -587,6 +602,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 350.50,
     'categoryId': 'cat-2',
     'date': '2024-10-10',
+    'isPaid': true,
   },
   {
     'id': 't4',
@@ -594,6 +610,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 4800.00,
     'categoryId': 'cat-1',
     'date': '2024-11-01',
+    'isPaid': true,
   },
   {
     'id': 't5',
@@ -601,6 +618,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 120.00,
     'categoryId': 'cat-2',
     'date': '2024-11-03',
+    'isPaid': false,
   },
   {
     'id': 't6',
@@ -608,6 +626,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 180.00,
     'categoryId': 'cat-3',
     'date': '2024-11-10',
+    'isPaid': false,
   },
   {
     'id': 't7',
@@ -615,6 +634,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 50.00,
     'categoryId': 'cat-4',
     'date': '2024-11-15',
+    'isPaid': true,
   },
   {
     'id': 't8',
@@ -622,6 +642,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 80.00,
     'categoryId': 'cat-5',
     'date': '2024-11-20',
+    'isPaid': false,
   },
   {
     'id': 't9',
@@ -629,6 +650,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 1500.00,
     'categoryId': 'cat-3',
     'date': '2024-11-05',
+    'isPaid': true,
   },
   {
     'id': 't10',
@@ -636,6 +658,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 4700.00,
     'categoryId': 'cat-1',
     'date': '2024-12-01',
+    'isPaid': true,
   },
   {
     'id': 't11',
@@ -643,6 +666,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 550.00,
     'categoryId': 'cat-2',
     'date': '2024-12-12',
+    'isPaid': false,
   },
   {
     'id': 't12',
@@ -650,6 +674,7 @@ final List<Map<String, dynamic>> mockTransactionsData = [
     'amount': 1500.00,
     'categoryId': 'cat-3',
     'date': '2024-12-05',
+    'isPaid': true,
   },
 ];
 
@@ -1171,6 +1196,7 @@ class TransactionCard extends StatelessWidget {
   final Color color;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
+  final Function(bool)? onPaidStatusChanged;
 
   const TransactionCard({
     super.key,
@@ -1179,6 +1205,7 @@ class TransactionCard extends StatelessWidget {
     required this.color,
     this.onDelete,
     this.onEdit,
+    this.onPaidStatusChanged,
   });
 
   @override
@@ -1260,11 +1287,19 @@ class TransactionCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onEdit, // Clicar no card também edita
         child: Card(
-          elevation: 2,
+          elevation: transaction.isPaid ? 4 : 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: color.withAlpha(102), width: 1),
+            side: BorderSide(
+              color: transaction.isPaid 
+                ? color.withAlpha(204) 
+                : color.withAlpha(102), 
+              width: transaction.isPaid ? 2 : 1,
+            ),
           ),
+          color: transaction.isPaid 
+            ? color.withAlpha(26)
+            : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -1278,7 +1313,9 @@ class TransactionCard extends StatelessWidget {
                   ),
                   child: Icon(
                     iconMap[category.iconName],
-                    color: color,
+                    color: transaction.isPaid 
+                      ? color 
+                      : color,
                     size: 28,
                   ),
                 ),
@@ -1290,9 +1327,12 @@ class TransactionCard extends StatelessWidget {
                       // Descrição
                       Text(
                         transaction.description,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: transaction.isPaid 
+                            ? color 
+                            : null,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1300,22 +1340,93 @@ class TransactionCard extends StatelessWidget {
                       // Categoria e Data
                       Text(
                         '${category.name} • ${formatDate(transaction.date)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 12, 
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Valor
-                Text(
-                  formatCurrency(
-                    transaction.amount,
-                  ).replaceAll('-', ''), // Remove sinal para valores positivos
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                  ),
+                // Coluna com valor e toggle
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Valor
+                    Text(
+                      formatCurrency(
+                        transaction.amount,
+                      ).replaceAll('-', ''),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: transaction.isPaid 
+                          ? color 
+                          : color,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Toggle Switch para marcar como pago
+                    GestureDetector(
+                      onTap: () => onPaidStatusChanged?.call(!transaction.isPaid),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 52,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          color: transaction.isPaid 
+                            ? color 
+                            : Colors.grey[300],
+                          boxShadow: [
+                            BoxShadow(
+                              color: (transaction.isPaid 
+                                ? color 
+                                : Colors.grey[300])!.withOpacity(0.4),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: AnimatedAlign(
+                          alignment: transaction.isPaid 
+                            ? Alignment.centerRight 
+                            : Alignment.centerLeft,
+                          duration: const Duration(milliseconds: 300),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  transaction.isPaid 
+                                    ? Icons.check 
+                                    : Icons.close,
+                                  size: 14,
+                                  color: transaction.isPaid 
+                                    ? color 
+                                    : Colors.grey[400],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1332,6 +1443,7 @@ class TransactionsScreen extends StatefulWidget {
   final Category Function(String) getCategoryById;
   final Function(String) deleteTransaction;
   final Function(Transaction) editTransaction;
+  final Function(String, bool)? onPaidStatusChanged; // Callback para marcar como pago
   final bool canEdit;
   final Function(DateTime)? onDateChanged; // Callback quando a data muda
 
@@ -1343,6 +1455,7 @@ class TransactionsScreen extends StatefulWidget {
     required this.deleteTransaction,
     required this.editTransaction,
     required this.canEdit,
+    this.onPaidStatusChanged,
     this.onDateChanged,
   });
 
@@ -1584,6 +1697,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       : null,
                   onDelete: widget.canEdit
                       ? () => widget.deleteTransaction(t.id)
+                      : null,
+                  onPaidStatusChanged: widget.onPaidStatusChanged != null
+                      ? (isPaid) => widget.onPaidStatusChanged!(t.id, isPaid)
                       : null,
                 ),
               );
@@ -4649,6 +4765,17 @@ class _MainAppState extends State<MainApp> {
     _saveCachedData();
   }
 
+  void _togglePaidStatus(String transactionId, bool isPaid) {
+    setState(() {
+      final index = _transactions.indexWhere((t) => t.id == transactionId);
+      if (index != -1) {
+        final transaction = _transactions[index];
+        _transactions[index] = transaction.copyWith(isPaid: isPaid);
+      }
+    });
+    _saveCachedData();
+  }
+
   // --- Funções Auxiliares ---
   void _showErrorSnackBar(String message) {
     showCenteredAlertModal(
@@ -5557,6 +5684,7 @@ class _MainAppState extends State<MainApp> {
                       editTransaction: _showNewTransactionModal,
                       canEdit: _isAdmin || _isCollaborator,
                       onDateChanged: _updateDashboardMonth,
+                      onPaidStatusChanged: _togglePaidStatus,
                     ),
                   ),
                 ),
