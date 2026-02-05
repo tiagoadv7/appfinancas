@@ -1291,15 +1291,13 @@ class TransactionCard extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: transaction.isPaid 
-                ? color.withAlpha(204) 
-                : color.withAlpha(102), 
+              color: transaction.isPaid
+                  ? color.withAlpha(204)
+                  : color.withAlpha(102),
               width: transaction.isPaid ? 2 : 1,
             ),
           ),
-          color: transaction.isPaid 
-            ? color.withAlpha(26)
-            : Colors.white,
+          color: transaction.isPaid ? color.withAlpha(26) : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -1313,9 +1311,7 @@ class TransactionCard extends StatelessWidget {
                   ),
                   child: Icon(
                     iconMap[category.iconName],
-                    color: transaction.isPaid 
-                      ? color 
-                      : color,
+                    color: transaction.isPaid ? color : color,
                     size: 28,
                   ),
                 ),
@@ -1330,9 +1326,7 @@ class TransactionCard extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: transaction.isPaid 
-                            ? color 
-                            : null,
+                          color: transaction.isPaid ? color : null,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1340,10 +1334,7 @@ class TransactionCard extends StatelessWidget {
                       // Categoria e Data
                       Text(
                         '${category.name} • ${formatDate(transaction.date)}',
-                        style: TextStyle(
-                          fontSize: 12, 
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -1355,44 +1346,41 @@ class TransactionCard extends StatelessWidget {
                   children: [
                     // Valor
                     Text(
-                      formatCurrency(
-                        transaction.amount,
-                      ).replaceAll('-', ''),
+                      formatCurrency(transaction.amount).replaceAll('-', ''),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: transaction.isPaid 
-                          ? color 
-                          : color,
+                        color: transaction.isPaid ? color : color,
                       ),
                     ),
                     const SizedBox(height: 6),
                     // Toggle Switch para marcar como pago
                     GestureDetector(
-                      onTap: () => onPaidStatusChanged?.call(!transaction.isPaid),
+                      onTap: () =>
+                          onPaidStatusChanged?.call(!transaction.isPaid),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: 52,
                         height: 28,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          color: transaction.isPaid 
-                            ? color 
-                            : Colors.grey[300],
+                          color: transaction.isPaid ? color : Colors.grey[300],
                           boxShadow: [
                             BoxShadow(
-                              color: (transaction.isPaid 
-                                ? color 
-                                : Colors.grey[300])!.withOpacity(0.4),
+                              color:
+                                  (transaction.isPaid
+                                          ? color
+                                          : Colors.grey[300])!
+                                      .withOpacity(0.4),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: AnimatedAlign(
-                          alignment: transaction.isPaid 
-                            ? Alignment.centerRight 
-                            : Alignment.centerLeft,
+                          alignment: transaction.isPaid
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
                           duration: const Duration(milliseconds: 300),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -1412,13 +1400,13 @@ class TransactionCard extends StatelessWidget {
                               ),
                               child: Center(
                                 child: Icon(
-                                  transaction.isPaid 
-                                    ? Icons.check 
-                                    : Icons.close,
+                                  transaction.isPaid
+                                      ? Icons.check
+                                      : Icons.close,
                                   size: 14,
-                                  color: transaction.isPaid 
-                                    ? color 
-                                    : Colors.grey[400],
+                                  color: transaction.isPaid
+                                      ? color
+                                      : Colors.grey[400],
                                 ),
                               ),
                             ),
@@ -1443,7 +1431,8 @@ class TransactionsScreen extends StatefulWidget {
   final Category Function(String) getCategoryById;
   final Function(String) deleteTransaction;
   final Function(Transaction) editTransaction;
-  final Function(String, bool)? onPaidStatusChanged; // Callback para marcar como pago
+  final Function(String, bool)?
+  onPaidStatusChanged; // Callback para marcar como pago
   final bool canEdit;
   final Function(DateTime)? onDateChanged; // Callback quando a data muda
 
