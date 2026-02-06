@@ -1297,7 +1297,7 @@ class TransactionCard extends StatelessWidget {
               width: transaction.isPaid ? 2 : 1,
             ),
           ),
-          color: transaction.isPaid ? color.withAlpha(26) : Colors.white,
+          color: transaction.isPaid ? color.withAlpha(26) : const Color.fromARGB(255, 255, 220, 160),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -1306,12 +1306,12 @@ class TransactionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withAlpha(26),
+                    color: transaction.isPaid ? color.withAlpha(26) : const Color.fromARGB(255, 255, 200, 140),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     iconMap[category.iconName],
-                    color: transaction.isPaid ? color : color,
+                    color: transaction.isPaid ? color : const Color.fromARGB(255, 200, 100, 0),
                     size: 28,
                   ),
                 ),
@@ -1326,7 +1326,7 @@ class TransactionCard extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: transaction.isPaid ? color : null,
+                          color: transaction.isPaid ? color : const Color.fromARGB(255, 200, 100, 0),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1350,7 +1350,7 @@ class TransactionCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: transaction.isPaid ? color : color,
+                        color: transaction.isPaid ? color : const Color.fromARGB(255, 200, 100, 0),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -5638,7 +5638,7 @@ class _MainAppState extends State<MainApp> {
                   CircularProgressIndicator(color: primaryColor),
                   SizedBox(height: 15),
                   Text(
-                    'Carregando dados...',
+                    'Carregando...',
                     style: TextStyle(color: primaryColor, fontSize: 16),
                   ),
                 ],
