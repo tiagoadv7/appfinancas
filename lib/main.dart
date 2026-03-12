@@ -210,6 +210,8 @@ class Transaction {
   final bool isRecurring;
   final String? recurringStartMonth; // formato 'yyyy-MM'
   final String? recurringEndMonth;   // formato 'yyyy-MM'
+  // Controla pago/não-pago por mês para transações recorrentes: {'yyyy-MM': true}
+  final Map<String, bool> paidByMonth;
 
   Transaction.fromMap(Map<String, dynamic> data)
     : id = data['id'],
@@ -220,7 +222,14 @@ class Transaction {
       isPaid = data['isPaid'] ?? false,
       isRecurring = data['isRecurring'] ?? false,
       recurringStartMonth = data['recurringStartMonth'],
-      recurringEndMonth = data['recurringEndMonth'];
+      recurringEndMonth = data['recurringEndMonth'],
+      paidByMonth = data['paidByMonth'] != null
+          ? Map<String, bool>.from(
+              (data['paidByMonth'] as Map).map(
+                (k, v) => MapEntry(k.toString(), v == true),
+              ),
+            )
+          : {};
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -232,20 +241,16 @@ class Transaction {
     'isRecurring': isRecurring,
     'recurringStartMonth': recurringStartMonth,
     'recurringEndMonth': recurringEndMonth,
+    'paidByMonth': paidByMonth,
   };
 
-  // Helper para criar uma cópia com isPaid alterado
-  Transaction copyWith({bool? isPaid}) => Transaction.fromMap({
-    'id': id,
-    'description': description,
-    'amount': amount,
-    'categoryId': categoryId,
-    'date': date.toIso8601String(),
-    'isPaid': isPaid ?? this.isPaid,
-    'isRecurring': isRecurring,
-    'recurringStartMonth': recurringStartMonth,
-    'recurringEndMonth': recurringEndMonth,
-  });
+  // Helper para criar uma cópia com isPaid ou paidByMonth alterado
+  Transaction copyWith({bool? isPaid, Map<String, bool>? paidByMonth}) {
+    final map = toMap();
+    if (isPaid != null) map['isPaid'] = isPaid;
+    if (paidByMonth != null) map['paidByMonth'] = paidByMonth;
+    return Transaction.fromMap(map);
+  }
 }
 
 // --- Custom Bottom Bar with Notch ---
@@ -341,60 +346,79 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                         child: GestureDetector(
                           onTap: () => widget.onTap(i),
                           behavior: HitTestBehavior.opaque,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(height: selected ? 8 : 12),
-                              // Icon with hover background stacked behind
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    width: hovered ? 48 : 0,
-                                    height: hovered ? 48 : 0,
-                                    decoration: BoxDecoration(
-                                      color: widget.backgroundColor,
-                                      shape: BoxShape.circle,
-                                      boxShadow: hovered
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.06,
-                                                ),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                  ), // Oculta o ícone base quando selecionado para exibir apenas o flutuante.
-                                  Opacity(
-                                    opacity: selected ? 0.0 : 1.0,
-                                    child: Icon(
-                                      it.icon,
-                                      // A cor do ícone não selecionado deve ser clara, pois o fundo é sempre escuro.
-                                      color: Colors.white.withOpacity(0.7),
+                          child: SizedBox(
+                            height: widget.height,
+                            child: Stack(
+                              children: [
+                                // Ícone centralizado (some quando selecionado)
+                                Positioned.fill(
+                                  bottom: 22,
+                                  child: Align(
+                                    alignment: Alignment.center,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          width: hovered ? 48 : 0,
+                                          height: hovered ? 48 : 0,
+                                          decoration: BoxDecoration(
+                                            color: widget.backgroundColor,
+                                            shape: BoxShape.circle,
+                                            boxShadow: hovered
+                                                ? [
+                                                    BoxShadow(
+                                                      color:
+                                                          Colors.black
+                                                              .withValues(
+                                                                alpha: 0.06,
+                                                              ),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(
+                                                        0,
+                                                        2,
+                                                      ),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                        Opacity(
+                                          opacity: selected ? 0.0 : 1.0,
+                                          child: Icon(
+                                            it.icon,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                it.label,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  // A cor do texto deve ser clara para contrastar com o fundo escuro.
-                                  color: selected
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.7),
-                                  fontWeight: selected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
                                 ),
-                              ),
-                            ],
+                                // Texto fixo na parte inferior — nunca se move
+                                Positioned(
+                                  bottom: 10,
+                                  left: 0,
+                                  right: 0,
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 180),
+                                    opacity: selected ? 1.0 : 0.6,
+                                    child: Text(
+                                      it.label,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1742,6 +1766,7 @@ class TransactionsScreen extends StatefulWidget {
   onPaidStatusChanged; // Callback para marcar como pago
   final bool canEdit;
   final Function(DateTime)? onDateChanged; // Callback quando a data muda
+  final DateTime? focusDate; // Força navegação para este mês quando fornecido
 
   const TransactionsScreen({
     super.key,
@@ -1753,6 +1778,7 @@ class TransactionsScreen extends StatefulWidget {
     required this.canEdit,
     this.onPaidStatusChanged,
     this.onDateChanged,
+    this.focusDate,
   });
 
   @override
@@ -1761,6 +1787,23 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void didUpdateWidget(TransactionsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Navega ao mês indicado quando o pai solicita (ex: após adicionar recorrência)
+    if (widget.focusDate != null &&
+        widget.focusDate != oldWidget.focusDate &&
+        (widget.focusDate!.year != _selectedDate.year ||
+            widget.focusDate!.month != _selectedDate.month)) {
+      setState(() {
+        _selectedDate = DateTime(
+          widget.focusDate!.year,
+          widget.focusDate!.month,
+        );
+      });
+    }
+  }
 
   Widget _buildEmptyState(BuildContext context) {
     return Padding(
@@ -1792,14 +1835,39 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredTransactions = widget.transactions.where((t) {
+    // Expande transações recorrentes para o mês selecionado
+    final List<Transaction> expandedForMonth = [];
+    for (final t in widget.transactions) {
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        final start = DateTime.parse('${t.recurringStartMonth}-01');
+        final end = DateTime.parse('${t.recurringEndMonth}-01');
+        final selected = DateTime(_selectedDate.year, _selectedDate.month);
+        if (!selected.isBefore(start) && !selected.isAfter(end)) {
+          final monthKey =
+              '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+          final day = t.date.day;
+          final daysInMonth =
+              DateUtils.getDaysInMonth(_selectedDate.year, _selectedDate.month);
+          final adjustedDay = day.clamp(1, daysInMonth);
+          final map = t.toMap();
+          // ID virtual com mês embutido para controle de pago por mês
+          map['id'] = '${t.id}@$monthKey';
+          map['date'] =
+              '$monthKey-${adjustedDay.toString().padLeft(2, '0')}';
+          // isPaid individual por mês
+          map['isPaid'] = t.paidByMonth[monthKey] ?? false;
+          expandedForMonth.add(Transaction.fromMap(map));
+        }
+      } else if (t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month) {
+        expandedForMonth.add(t);
+      }
+    }
+    final filteredTransactions = expandedForMonth.where((t) {
       final cat = widget.getCategoryById(t.categoryId);
-      final matchesType =
-          widget.filterType == 'all' || cat.type == widget.filterType;
-      final matchesDate =
-          t.date.year == _selectedDate.year &&
-          t.date.month == _selectedDate.month;
-      return matchesType && matchesDate;
+      return widget.filterType == 'all' || cat.type == widget.filterType;
     }).toList();
 
     // Ordenar por data decrescente
@@ -2623,11 +2691,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Filtrar transações pelo mês selecionado
-    final monthlyTransactions = widget.transactions.where((t) {
-      return t.date.year == _selectedDate.year &&
-          t.date.month == _selectedDate.month;
-    }).toList();
+    // 1. Filtrar transações pelo mês selecionado (incluindo recorrentes)
+    final List<Transaction> monthlyTransactions = [];
+    for (final t in widget.transactions) {
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        final start = DateTime.parse('${t.recurringStartMonth}-01');
+        final end = DateTime.parse('${t.recurringEndMonth}-01');
+        final selected = DateTime(_selectedDate.year, _selectedDate.month);
+        if (!selected.isBefore(start) && !selected.isAfter(end)) {
+          // Cria cópia virtual com isPaid do mês correto
+          final monthKey =
+              '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+          final map = t.toMap();
+          map['isPaid'] = t.paidByMonth[monthKey] ?? false;
+          monthlyTransactions.add(Transaction.fromMap(map));
+        }
+      } else if (t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month) {
+        monthlyTransactions.add(t);
+      }
+    }
 
     // 2. Calcular totais e agrupamentos
     double totalIncome = 0;
@@ -4321,12 +4406,14 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends State<MainApp> {
+class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   // Estado da Aplicação
   bool _isLoading = true;
+  bool _isLocked = false;
   int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
   DateTime _dashboardSelectedMonth =
-      DateTime.now(); // Mês selecionado no Extrato
+      DateTime.now(); // Mês selecionado no Dashboard
+  DateTime? _extractFocusDate; // Força navegação do extrato para este mês
 
   late final AuthService _authService;
   User? _currentUser;
@@ -4339,10 +4426,170 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Configure auth service (mock or Google) based on config
     _authService = useMockAuth ? MockAuthService() : GoogleAuthService();
-    _loadCachedData();
+    _loadCachedData().then((_) {
+      // Auto-dispara biometria no login se o usuário já tinha entrado antes
+      if (!kIsWeb && _currentUser == null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final prefs = await SharedPreferences.getInstance();
+          final savedEmail = prefs.getString('biometricUserEmail');
+          if (savedEmail != null && savedEmail.isNotEmpty && mounted) {
+            _biometricLogin();
+          }
+        });
+      }
+    });
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Bloqueia quando o app vai para segundo plano
+    if (state == AppLifecycleState.paused && !_isGuest) {
+      setState(() => _isLocked = true);
+    } else if (state == AppLifecycleState.resumed && _isLocked) {
+      // Dispara a autenticação automaticamente ao retornar do segundo plano
+      _unlockApp();
+    }
+  }
+
+  Future<void> _unlockApp() async {
+    final auth = LocalAuthentication();
+    try {
+      final isSupported = await auth.isDeviceSupported();
+      if (isSupported) {
+        final authenticated = await auth.authenticate(
+          localizedReason: 'Desbloqueie para acessar o FinançasApp',
+          options: const AuthenticationOptions(
+            stickyAuth: true,
+            biometricOnly: false,
+          ),
+        );
+        if (authenticated && mounted) {
+          setState(() => _isLocked = false);
+        }
+      } else {
+        // Dispositivo sem suporte a biometria: desbloqueia direto
+        if (mounted) setState(() => _isLocked = false);
+      }
+    } on PlatformException {
+      if (mounted) setState(() => _isLocked = false);
+    }
+  }
+
+  Widget _buildLockScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A1628),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 48),
+            // Logo + nome do app
+            const AppLogo(width: 64, height: 64, fit: BoxFit.contain),
+            const SizedBox(height: 12),
+            const Text(
+              'FinançasApp',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const Spacer(),
+            // Ícone de cadeado
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                FontAwesomeIcons.lock,
+                color: Colors.white,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Aplicativo bloqueado',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Para continuar, confirme sua identidade.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const Spacer(),
+            // Botão desbloquear
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _unlockApp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 6,
+                  ),
+                  icon: const Icon(FontAwesomeIcons.fingerprint, size: 20),
+                  label: const Text(
+                    'Desbloquear',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Sair da conta
+            TextButton.icon(
+              onPressed: () {
+                setState(() => _isLocked = false);
+                _signOut();
+              },
+              icon: Icon(
+                FontAwesomeIcons.arrowRightFromBracket,
+                size: 14,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+              label: Text(
+                'Sair da conta',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
   }
 
   // --- Cache de Dados ---
@@ -4861,9 +5108,17 @@ class _MainAppState extends State<MainApp> {
       return;
     }
     setState(() {
-      final index = _transactions.indexWhere((t) => t.id == transaction.id);
+      // IDs virtuais de recorrentes usam 'baseId@monthKey'; resolve o base
+      final baseId = transaction.id.contains('@')
+          ? transaction.id.substring(0, transaction.id.indexOf('@'))
+          : transaction.id;
+      final index = _transactions.indexWhere((t) => t.id == baseId);
       if (index != -1) {
-        _transactions[index] = transaction;
+        final stored = _transactions[index];
+        final map = transaction.toMap();
+        map['id'] = baseId; // restaura ID base
+        map['paidByMonth'] = stored.paidByMonth; // preserva status por mês
+        _transactions[index] = Transaction.fromMap(map);
       }
     });
     _saveCachedData();
@@ -4946,10 +5201,23 @@ class _MainAppState extends State<MainApp> {
 
   void _togglePaidStatus(String transactionId, bool isPaid) {
     setState(() {
-      final index = _transactions.indexWhere((t) => t.id == transactionId);
-      if (index != -1) {
-        final transaction = _transactions[index];
-        _transactions[index] = transaction.copyWith(isPaid: isPaid);
+      // IDs de recorrentes virtuais usam formato 'baseId@yyyy-MM'
+      if (transactionId.contains('@')) {
+        final sep = transactionId.indexOf('@');
+        final baseId = transactionId.substring(0, sep);
+        final monthKey = transactionId.substring(sep + 1);
+        final index = _transactions.indexWhere((t) => t.id == baseId);
+        if (index != -1) {
+          final t = _transactions[index];
+          final updated = Map<String, bool>.from(t.paidByMonth);
+          updated[monthKey] = isPaid;
+          _transactions[index] = t.copyWith(paidByMonth: updated);
+        }
+      } else {
+        final index = _transactions.indexWhere((t) => t.id == transactionId);
+        if (index != -1) {
+          _transactions[index] = _transactions[index].copyWith(isPaid: isPaid);
+        }
       }
     });
     _saveCachedData();
@@ -5016,56 +5284,30 @@ class _MainAppState extends State<MainApp> {
       _showErrorSnackBar('Você não tem permissão para adicionar transações');
       return;
     }
+    final baseTs = DateTime.now().millisecondsSinceEpoch;
+    // Armazena UMA transação base; a expansão por mês é feita na exibição
     setState(() {
-      if (transaction.isRecurring &&
-          transaction.recurringStartMonth != null &&
-          transaction.recurringEndMonth != null) {
-        // Gera uma transação por mês no intervalo definido
-        final start = DateTime.parse('${transaction.recurringStartMonth}-01');
-        final end = DateTime.parse('${transaction.recurringEndMonth}-01');
-        DateTime current = DateTime(start.year, start.month);
-        int idx = 0;
-        while (!current.isAfter(end)) {
-          // Mantém o dia original da data, ajustando mês/ano
-          final day = transaction.date.day;
-          final daysInMonth = DateUtils.getDaysInMonth(current.year, current.month);
-          final adjustedDay = day.clamp(1, daysInMonth);
-          final txDate = DateTime(current.year, current.month, adjustedDay);
-          _transactions.add(
-            Transaction.fromMap({
-              'id': 't${DateTime.now().millisecondsSinceEpoch}_$idx',
-              'description': transaction.description,
-              'amount': transaction.amount,
-              'categoryId': transaction.categoryId,
-              'date': txDate.toIso8601String().substring(0, 10),
-              'isPaid': false,
-              'isRecurring': true,
-              'recurringStartMonth': transaction.recurringStartMonth,
-              'recurringEndMonth': transaction.recurringEndMonth,
-            }),
-          );
-          current = DateTime(current.year, current.month + 1);
-          idx++;
-        }
-      } else {
-        _transactions.add(
-          Transaction.fromMap({
-            'id': 't${DateTime.now().millisecondsSinceEpoch}',
-            'description': transaction.description,
-            'amount': transaction.amount,
-            'categoryId': transaction.categoryId,
-            'date': transaction.date.toIso8601String().substring(0, 10),
-            'isPaid': false,
-          }),
-        );
-      }
+      _transactions.add(Transaction.fromMap({
+        'id': transaction.isRecurring ? 'r$baseTs' : 't$baseTs',
+        'description': transaction.description,
+        'amount': transaction.amount,
+        'categoryId': transaction.categoryId,
+        'date': transaction.date.toIso8601String().substring(0, 10),
+        'isPaid': false,
+        'isRecurring': transaction.isRecurring,
+        'recurringStartMonth': transaction.recurringStartMonth,
+        'recurringEndMonth': transaction.recurringEndMonth,
+      }));
     });
+
     _saveCachedData();
-    // Fechar o modal
     Navigator.of(context).pop();
-    // Mudar para a tela de 'Todas as Transações' para ver o item recém-adicionado
     setState(() {
       _selectedIndex = 1;
+      // Navega o extrato para o mês inicial da recorrência
+      if (transaction.isRecurring && transaction.recurringStartMonth != null) {
+        _extractFocusDate = DateTime.parse('${transaction.recurringStartMonth}-01');
+      }
     });
   }
 
@@ -5155,7 +5397,11 @@ class _MainAppState extends State<MainApp> {
                       label: const Text('Excluir'),
                       onPressed: () {
                         setState(() {
-                          _transactions.removeWhere((t) => t.id == id);
+                          // IDs virtuais de recorrentes usam 'baseId@monthKey'
+                          final baseId = id.contains('@')
+                              ? id.substring(0, id.indexOf('@'))
+                              : id;
+                          _transactions.removeWhere((t) => t.id == baseId);
                         });
                         _saveCachedData();
                         Navigator.of(context).pop();
@@ -5276,15 +5522,30 @@ class _MainAppState extends State<MainApp> {
     double totalExpense = 0;
 
     for (var t in _transactions) {
-      if (t.date.year == month.year && t.date.month == month.month) {
-        // Considerar apenas transações pagas/recebidas no dashboard
-        if (!t.isPaid) continue;
-        final category = _getCategoryById(t.categoryId);
-        if (category.type == 'income') {
-          totalIncome += t.amount;
-        } else {
-          totalExpense += t.amount;
-        }
+      bool matchesMonth;
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        final start = DateTime.parse('${t.recurringStartMonth}-01');
+        final end = DateTime.parse('${t.recurringEndMonth}-01');
+        final selected = DateTime(month.year, month.month);
+        matchesMonth = !selected.isBefore(start) && !selected.isAfter(end);
+      } else {
+        matchesMonth =
+            t.date.year == month.year && t.date.month == month.month;
+      }
+      if (!matchesMonth) continue;
+      // Considerar apenas transações pagas/recebidas no dashboard
+      final monthKey =
+          '${month.year}-${month.month.toString().padLeft(2, '0')}';
+      final isPaidForMonth =
+          t.isRecurring ? (t.paidByMonth[monthKey] ?? false) : t.isPaid;
+      if (!isPaidForMonth) continue;
+      final category = _getCategoryById(t.categoryId);
+      if (category.type == 'income') {
+        totalIncome += t.amount;
+      } else {
+        totalExpense += t.amount;
       }
     }
     return {
@@ -6133,25 +6394,27 @@ class _MainAppState extends State<MainApp> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          // Ajusta o padding para o teclado (viewInsets)
-          padding: EdgeInsets.only(
-            top: 20,
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: NewTransactionForm(
-            categories: _categories,
-            addTransaction: _addTransaction,
-            updateTransaction: _updateTransaction,
-            transactionToEdit: transactionToEdit,
-            defaultFilterType: defaultFilterType,
-            onCategoryAdded: (Category cat) {
-              _categories.add(cat);
-              setState(() {});
-              _saveCachedData();
-            },
+        return SingleChildScrollView(
+          child: Padding(
+            // Ajusta o padding para o teclado (viewInsets)
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: NewTransactionForm(
+              categories: _categories,
+              addTransaction: _addTransaction,
+              updateTransaction: _updateTransaction,
+              transactionToEdit: transactionToEdit,
+              defaultFilterType: defaultFilterType,
+              onCategoryAdded: (Category cat) {
+                _categories.add(cat);
+                setState(() {});
+                _saveCachedData();
+              },
+            ),
           ),
         );
       },
@@ -6161,6 +6424,9 @@ class _MainAppState extends State<MainApp> {
   // --- Widget Principal ---
   @override
   Widget build(BuildContext context) {
+    // Tela de bloqueio — exibida quando o app volta do segundo plano
+    if (_isLocked && !_isGuest) return _buildLockScreen();
+
     return Scaffold(
       extendBody: true,
       appBar: AppBar(
@@ -6251,6 +6517,7 @@ class _MainAppState extends State<MainApp> {
                       canEdit: _isAdmin || _isCollaborator,
                       onDateChanged: _updateDashboardMonth,
                       onPaidStatusChanged: _togglePaidStatus,
+                      focusDate: _extractFocusDate,
                     ),
                   ),
                 ),
