@@ -14,6 +14,8 @@ import 'auth/mock_auth_service.dart';
 import 'auth/google_auth_service.dart';
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter/services.dart' show PlatformException;
 
 // ===================================================================
 // 1. CONSTANTES, MODELOS E UTILITÁRIOS (Unificados no arquivo principal)
@@ -205,6 +207,9 @@ class Transaction {
   final String categoryId;
   final DateTime date;
   final bool isPaid;
+  final bool isRecurring;
+  final String? recurringStartMonth; // formato 'yyyy-MM'
+  final String? recurringEndMonth;   // formato 'yyyy-MM'
 
   Transaction.fromMap(Map<String, dynamic> data)
     : id = data['id'],
@@ -212,7 +217,10 @@ class Transaction {
       amount = data['amount'].toDouble(),
       categoryId = data['categoryId'],
       date = DateTime.parse(data['date']),
-      isPaid = data['isPaid'] ?? false;
+      isPaid = data['isPaid'] ?? false,
+      isRecurring = data['isRecurring'] ?? false,
+      recurringStartMonth = data['recurringStartMonth'],
+      recurringEndMonth = data['recurringEndMonth'];
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -221,6 +229,9 @@ class Transaction {
     'categoryId': categoryId,
     'date': date.toIso8601String().substring(0, 10),
     'isPaid': isPaid,
+    'isRecurring': isRecurring,
+    'recurringStartMonth': recurringStartMonth,
+    'recurringEndMonth': recurringEndMonth,
   };
 
   // Helper para criar uma cópia com isPaid alterado
@@ -231,6 +242,9 @@ class Transaction {
     'categoryId': categoryId,
     'date': date.toIso8601String(),
     'isPaid': isPaid ?? this.isPaid,
+    'isRecurring': isRecurring,
+    'recurringStartMonth': recurringStartMonth,
+    'recurringEndMonth': recurringEndMonth,
   });
 }
 
@@ -360,14 +374,8 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                                     opacity: selected ? 0.0 : 1.0,
                                     child: Icon(
                                       it.icon,
-                                      color: selected
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : Theme.of(context)
-                                                .colorScheme
-                                                .onSurface
-                                                .withOpacity(0.9),
+                                      // A cor do ícone não selecionado deve ser clara, pois o fundo é sempre escuro.
+                                      color: Colors.white.withOpacity(0.7),
                                     ),
                                   ),
                                 ],
@@ -377,11 +385,10 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                                 it.label,
                                 style: TextStyle(
                                   fontSize: 11,
+                                  // A cor do texto deve ser clara para contrastar com o fundo escuro.
                                   color: selected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
+                                      ? Colors.white
+                                      : Colors.white.withOpacity(0.7),
                                   fontWeight: selected
                                       ? FontWeight.w600
                                       : FontWeight.normal,
@@ -799,6 +806,9 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
   String _amount = '';
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
+  bool _isRecurring = false;
+  DateTime _recurringStartMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime _recurringEndMonth = DateTime(DateTime.now().year, DateTime.now().month + 1);
 
   // Função auxiliar para formatar data com segurança
   String _formatDateSafe(DateTime date) {
@@ -838,18 +848,24 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
     }
   }
 
+  String _monthKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
   void _submitForm() {
     if (_formKey.currentState!.validate() && _selectedCategoryId != null) {
       _formKey.currentState!.save();
-      final newTransaction = Transaction.fromMap({
-        // Mantém o ID original se estiver editando, ou 'temp' se for novo
+      final map = {
         'id': _isEditing ? widget.transactionToEdit!.id : 'temp',
         'description': _description,
-        // Converte a vírgula para ponto para o parse
         'amount': double.parse(_amount.replaceAll(',', '.')),
         'categoryId': _selectedCategoryId!,
         'date': _selectedDate.toIso8601String().substring(0, 10),
-      });
+        'isPaid': false,
+        'isRecurring': _isRecurring,
+        'recurringStartMonth': _isRecurring ? _monthKey(_recurringStartMonth) : null,
+        'recurringEndMonth': _isRecurring ? _monthKey(_recurringEndMonth) : null,
+      };
+      final newTransaction = Transaction.fromMap(map);
 
       if (_isEditing) {
         widget.updateTransaction(newTransaction);
@@ -1142,6 +1158,76 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // --- Recorrência ---
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: _isRecurring
+                    ? primaryColor
+                    : Theme.of(context).dividerColor,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                CheckboxListTile(
+                  dense: true,
+                  title: const Text(
+                    'Se repete mensalmente',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  secondary: Icon(
+                    FontAwesomeIcons.arrowsRotate,
+                    color: _isRecurring ? primaryColor : Colors.grey,
+                    size: 18,
+                  ),
+                  value: _isRecurring,
+                  activeColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onChanged: (v) => setState(() => _isRecurring = v ?? false),
+                ),
+                if (_isRecurring) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _MonthPickerTile(
+                            label: 'Mês inicial',
+                            value: _recurringStartMonth,
+                            onChanged: (d) => setState(() {
+                              _recurringStartMonth = d;
+                              // Garante que fim >= início
+                              if (_recurringEndMonth.isBefore(d)) {
+                                _recurringEndMonth = DateTime(d.year, d.month + 1);
+                              }
+                            }),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MonthPickerTile(
+                            label: 'Mês final',
+                            value: _recurringEndMonth,
+                            minDate: _recurringStartMonth,
+                            onChanged: (d) =>
+                                setState(() => _recurringEndMonth = d),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(height: 25),
           Row(
             children: [
@@ -1181,6 +1267,217 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Widget auxiliar para exibir linha de credencial no banner DEV
+class _DevCredentialRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DevCredentialRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 44,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFFA6ADC8),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFF5C2E7),
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Widget auxiliar para seleção de mês/ano de recorrência
+class _MonthPickerTile extends StatelessWidget {
+  final String label;
+  final DateTime value;
+  final DateTime? minDate;
+  final ValueChanged<DateTime> onChanged;
+
+  const _MonthPickerTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.minDate,
+  });
+
+  static const List<String> _months = [
+    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+  ];
+
+  Future<void> _pick(BuildContext context) async {
+    int selectedYear = value.year;
+    int selectedMonth = value.month;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setS) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Text(label),
+            content: SizedBox(
+              width: 280,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Seletor de ano
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(FontAwesomeIcons.chevronLeft, size: 14),
+                        onPressed: () => setS(() => selectedYear--),
+                      ),
+                      Text(
+                        '$selectedYear',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(FontAwesomeIcons.chevronRight, size: 14),
+                        onPressed: () => setS(() => selectedYear++),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Grade de meses
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    mainAxisSpacing: 6,
+                    crossAxisSpacing: 6,
+                    childAspectRatio: 1.6,
+                    children: List.generate(12, (i) {
+                      final month = i + 1;
+                      final isSelected =
+                          selectedYear == value.year && month == selectedMonth;
+                      final isDisabled = minDate != null &&
+                          DateTime(selectedYear, month)
+                              .isBefore(minDate!);
+                      return GestureDetector(
+                        onTap: isDisabled
+                            ? null
+                            : () => setS(() => selectedMonth = month),
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? primaryColor
+                                : isDisabled
+                                    ? Colors.grey[100]
+                                    : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _months[i],
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? Colors.white
+                                  : isDisabled
+                                      ? Colors.grey[400]
+                                      : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  onChanged(DateTime(selectedYear, selectedMonth));
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final monthName = _months[value.month - 1];
+    return InkWell(
+      onTap: () => _pick(context),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: primaryColor.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                const Icon(FontAwesomeIcons.calendar, size: 12, color: primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  '$monthName/${value.year}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1480,7 +1777,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Nenhuma transação em ${DateFormat('MMMM', 'pt_BR').format(_selectedDate)}',
+              'Nenhum registro cadastrado em ${DateFormat('MMMM', 'pt_BR').format(_selectedDate)}',
               style: TextStyle(
                 fontSize: 16,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1512,6 +1809,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     double totalIncome = 0;
     double totalExpense = 0;
     for (final t in filteredTransactions) {
+      // Considerar apenas transações pagas/recebidas nos totais
+      if (!t.isPaid) continue;
       final cat = widget.getCategoryById(t.categoryId);
       if (cat.type == 'income') {
         totalIncome += t.amount;
@@ -1594,15 +1893,32 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     });
                   },
                 ),
-                Text(
-                  DateFormat(
-                    'MMMM yyyy',
-                    'pt_BR',
-                  ).format(_selectedDate).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                GestureDetector(
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2101),
+                      locale: const Locale('pt', 'BR'),
+                    );
+                    if (picked != null && picked != _selectedDate) {
+                      setState(() {
+                        _selectedDate = picked;
+                        widget.onDateChanged?.call(_selectedDate);
+                      });
+                    }
+                  },
+                  child: Text(
+                    DateFormat(
+                      'MMMM yyyy',
+                      'pt_BR',
+                    ).format(_selectedDate).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1941,114 +2257,51 @@ class _AnnualPieChartState extends State<AnnualPieChart>
     final total = totalIncome + totalExpense;
 
     if (total == 0) {
-      return const Center(child: Text('Sem dados para exibir o gráfico.'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              FontAwesomeIcons.chartPie,
+              size: 48,
+              color: Colors.grey.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Sem dados para exibir o gráfico.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
     }
 
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
-        return Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = min(constraints.maxWidth, constraints.maxHeight);
-                  return Center(
-                    child: SizedBox(
-                      width: size,
-                      height: size,
-                      child: CustomPaint(
-                        painter: _ModernPieChartPainter(
-                          income: totalIncome,
-                          expense: totalExpense,
-                          total: total,
-                          incomeColor: incomeColor,
-                          expenseColor: expenseColor,
-                          animationValue: _animation.value,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ModernLegendItem(
-                    color: incomeColor,
-                    label: 'Entradas',
-                    value: totalIncome,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final size = min(constraints.maxWidth, constraints.maxHeight);
+            return Center(
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: CustomPaint(
+                  painter: _ModernPieChartPainter(
+                    income: totalIncome,
+                    expense: totalExpense,
                     total: total,
+                    incomeColor: incomeColor,
+                    expenseColor: expenseColor,
+                    animationValue: _animation.value,
                   ),
-                  const SizedBox(height: 16),
-                  _ModernLegendItem(
-                    color: expenseColor,
-                    label: 'Saídas',
-                    value: totalExpense,
-                    total: total,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            );
+          },
         );
       },
-    );
-  }
-}
-
-class _ModernLegendItem extends StatelessWidget {
-  final Color color;
-  final String label;
-  final double value;
-  final double total;
-
-  const _ModernLegendItem({
-    required this.color,
-    required this.label,
-    required this.value,
-    required this.total,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (value / total * 100).toStringAsFixed(1);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${formatCurrency(value)} ($percent%)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -2142,7 +2395,7 @@ class _ModernPieChartPainter extends CustomPainter {
 }
 
 // --- Componente de Resumo por Categoria ---
-class CategorySummaryCard extends StatefulWidget {
+class CategorySummaryCard extends StatelessWidget {
   final String title;
   final String icon;
   final List<Map<String, dynamic>> data;
@@ -2157,130 +2410,98 @@ class CategorySummaryCard extends StatefulWidget {
   });
 
   @override
-  State<CategorySummaryCard> createState() => _CategorySummaryCardState();
-}
-
-class _CategorySummaryCardState extends State<CategorySummaryCard> {
-  bool _isScrollEnabled = false;
-  late ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: GestureDetector(
-        onTapDown: (_) {
-          setState(() => _isScrollEnabled = true);
-        },
-        onTapUp: (_) {
-          setState(() => _isScrollEnabled = false);
-        },
-        onTapCancel: () {
-          setState(() => _isScrollEnabled = false);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(iconMap[widget.icon], color: widget.color),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: widget.color,
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(iconMap[icon], color: color),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              if (widget.data.isEmpty)
-                Center(
-                  child: Text(
-                    'Nenhuma transação de ${widget.title.toLowerCase()} registrada.',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                )
-              else
-                SingleChildScrollView(
-                  child: Column(
-                    children: List.generate(widget.data.length, (index) {
-                      final cat = widget.data[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Row(
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            if (data.isEmpty)
+              Center(
+                child: Text(
+                  'Nenhuma transação de ${title.toLowerCase()} registrada.',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: data.length,
+                separatorBuilder: (context, index) => const Divider(height: 24),
+                itemBuilder: (context, index) {
+                  final cat = data[index];
+                  return Row(
+                    children: [
+                      // Ícone da Categoria
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: color.withAlpha(26),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          iconMap[cat['icon']],
+                          color: color,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Ícone da Categoria
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: widget.color.withAlpha(26),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(
-                                iconMap[cat['icon']],
-                                color: widget.color,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    cat['name'] as String,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${cat['count']} transações',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Valor
                             Text(
-                              formatCurrency(
-                                cat['amount'] as double,
-                              ).replaceAll('-', ''), // Remove sinal
+                              cat['name'] as String,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              '${cat['count']} registro${cat['count'] != 1 ? 's' : ''}',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: widget.color,
+                                fontSize: 12,
+                                color: Colors.grey[600],
                               ),
                             ),
                           ],
                         ),
-                      );
-                    }),
-                  ),
-                ),
-            ],
-          ),
+                      ),
+                      // Valor
+                      Text(
+                        formatCurrency(
+                          cat['amount'] as double,
+                        ).replaceAll('-', ''), // Remove sinal
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -2417,6 +2638,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     };
 
     for (var t in monthlyTransactions) {
+      // Considerar apenas transações pagas/recebidas nos relatórios
+      if (!t.isPaid) continue;
+
       final category = widget.getCategoryById(t.categoryId);
       final type = category.type;
 
@@ -2531,15 +2755,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     });
                   },
                 ),
-                Text(
-                  DateFormat(
-                    'MMMM yyyy',
-                    'pt_BR',
-                  ).format(_selectedDate).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                GestureDetector(
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2101),
+                      locale: const Locale('pt', 'BR'),
+                    );
+                    if (picked != null && picked != _selectedDate) {
+                      setState(() {
+                        _selectedDate = picked;
+                      });
+                    }
+                  },
+                  child: Text(
+                    DateFormat(
+                      'MMMM yyyy',
+                      'pt_BR',
+                    ).format(_selectedDate).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -2612,15 +2852,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     List<Map<String, dynamic>> sortedIncomeCats,
     List<Map<String, dynamic>> sortedExpenseCats,
   ) {
-    // Calcular totais do mês
-    double totalIncome = 0;
-    double totalExpense = 0;
-    for (var d in pieData) {
-      totalIncome += (d['income'] as double);
-      totalExpense += (d['expense'] as double);
-    }
-    final totalGeneral = totalIncome + totalExpense;
-
     return Column(
       children: [
         // 1. Gráfico de Pizza (Topo)
@@ -2632,158 +2863,56 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
         const SizedBox(height: 25),
 
-        // 2. Cards de Resumo de Entradas e Saídas (Novo Layout)
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            return GridView.count(
-              crossAxisCount: isMobile ? 1 : 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: isMobile ? 2.5 : 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildSummaryCard(
-                  context: context,
-                  title: 'Entradas',
-                  amount: totalIncome,
-                  percentage: totalGeneral > 0
-                      ? (totalIncome / totalGeneral) * 100
-                      : 0,
-                  icon: 'SetaCimaTendencia',
-                  color: incomeColor,
-                ),
-                _buildSummaryCard(
-                  context: context,
-                  title: 'Saídas',
-                  amount: totalExpense,
-                  percentage: totalGeneral > 0
-                      ? (totalExpense / totalGeneral) * 100
-                      : 0,
-                  icon: 'Painel',
-                  color: expenseColor,
-                ),
-              ],
-            );
-          },
-        ),
-
-        const SizedBox(height: 25),
-
         // 3. Tabelas de Categorias (Entradas e Saídas)
         LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 600;
-            return GridView.count(
-              crossAxisCount: isMobile ? 1 : 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: double.infinity,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+
+            if (isMobile) {
+              return Column(
+                children: [
+                  CategorySummaryCard(
+                    title: 'Entradas',
+                    icon: 'SetaCimaTendencia',
+                    data: sortedIncomeCats,
+                    color: incomeColor,
+                  ),
+                  const SizedBox(height: 16),
+                  CategorySummaryCard(
+                    title: 'Saídas',
+                    icon: 'Painel',
+                    data: sortedExpenseCats,
+                    color: expenseColor,
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CategorySummaryCard(
-                  title: 'Entradas',
-                  icon: 'SetaCimaTendencia',
-                  data: sortedIncomeCats.take(5).toList(),
-                  color: incomeColor,
+                Expanded(
+                  child: CategorySummaryCard(
+                    title: 'Entradas',
+                    icon: 'SetaCimaTendencia',
+                    data: sortedIncomeCats,
+                    color: incomeColor,
+                  ),
                 ),
-                CategorySummaryCard(
-                  title: 'Saídas',
-                  icon: 'Painel',
-                  data: sortedExpenseCats.take(5).toList(),
-                  color: expenseColor,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: CategorySummaryCard(
+                    title: 'Saídas',
+                    icon: 'Painel',
+                    data: sortedExpenseCats,
+                    color: expenseColor,
+                  ),
                 ),
               ],
             );
           },
         ),
       ],
-    );
-  }
-
-  /// Widget para exibir o card resumido de entradas/saídas
-  Widget _buildSummaryCard({
-    required BuildContext context,
-    required String title,
-    required double amount,
-    required double percentage,
-    required String icon,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color.withAlpha(30), color.withAlpha(10)],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        formatCurrency(amount),
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: color.withAlpha(50),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(iconMap[icon], color: color, size: 24),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withAlpha(30),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${percentage.toStringAsFixed(1)}% do total',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -3150,7 +3279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Gerenciar Salário'),
+          title: const Text('Salário'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3223,6 +3352,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showCustomCategoriesListDialog() {
+    final customCats = widget.categories.where((c) {
+      return !mockCategoriesData.any((m) => m['id'] == c.id);
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(FontAwesomeIcons.tag, color: primaryColor),
+              const SizedBox(width: 12),
+              const Text('Categorias'),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: customCats.isEmpty
+                ? const Text('Nenhuma categoria personalizada cadastrada.')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: customCats.length,
+                    itemBuilder: (context, index) {
+                      final cat = customCats[index];
+                      final isIncome = cat.type == 'income';
+                      final color = isIncome ? incomeColor : expenseColor;
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        elevation: 0,
+                        color: color.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ListTile(
+                          leading: Icon(
+                            iconMap[cat.iconName] ?? Icons.circle,
+                            color: color,
+                          ),
+                          title: Text(
+                            cat.name,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Text(isIncome ? 'Entrada' : 'Saída'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  FontAwesomeIcons.penToSquare,
+                                  size: 18,
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _showEditCategoryDialog(cat);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: expenseColor,
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      title: const Text('Confirmar Exclusão'),
+                                      content: Text(
+                                        'Deseja realmente excluir a categoria "${cat.name}"?',
+                                      ),
+                                      actions: [
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            FontAwesomeIcons.xmark,
+                                          ),
+                                          label: const Text('Cancelar'),
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(),
+                                        ),
+                                        ElevatedButton.icon(
+                                          icon: const Icon(
+                                            FontAwesomeIcons.trash,
+                                          ),
+                                          label: const Text('Excluir'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: expenseColor,
+                                          ),
+                                          onPressed: () {
+                                            widget.onDeleteCategory(cat.id);
+                                            Navigator.of(ctx).pop();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(FontAwesomeIcons.xmark),
+              label: const Text('Fechar'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -3489,7 +3742,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       FontAwesomeIcons.moneyBill,
                       color: primaryColor,
                     ),
-                    title: const Text('Gerenciar Salário'),
+                    title: const Text('Salário'),
+                    subtitle: Text(
+                      formatCurrency(widget.user.salary),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     trailing: const Icon(FontAwesomeIcons.chevronRight),
                     onTap: _showSalaryDialog,
                   ),
@@ -3589,135 +3848,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Categorias Personalizadas
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  const Icon(
-                    FontAwesomeIcons.tag,
-                    color: primaryColor,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Categorias Personalizadas',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ],
+            child: ListTile(
+              leading: const Icon(FontAwesomeIcons.tag, color: primaryColor),
+              title: const Text('Categorias Personalizadas'),
+              subtitle: Text(
+                '${widget.categories.where((c) => !mockCategoriesData.any((m) => m['id'] == c.id)).length} cadastradas',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Builder(
-              builder: (context) {
-                final customCats = widget.categories.where((c) {
-                  return !mockCategoriesData.any((m) => m['id'] == c.id);
-                }).toList();
-
-                if (customCats.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Text(
-                      'Nenhuma categoria personalizada.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-
-                return Column(
-                  children: customCats.map((cat) {
-                    final isIncome = cat.type == 'income';
-                    final color = isIncome ? incomeColor : expenseColor;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            iconMap[cat.iconName] ?? Icons.circle,
-                            color: color,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(cat.name),
-                        subtitle: Text(isIncome ? 'Entrada' : 'Saída'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                FontAwesomeIcons.penToSquare,
-                                size: 20,
-                              ),
-                              onPressed: () => _showEditCategoryDialog(cat),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                size: 20,
-                                color: expenseColor,
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    title: const Text('Confirmar Exclusão'),
-                                    content: Text(
-                                      'Deseja realmente excluir a categoria "${cat.name}"?',
-                                    ),
-                                    actions: [
-                                      TextButton.icon(
-                                        icon: const Icon(
-                                          FontAwesomeIcons.xmark,
-                                        ),
-                                        label: const Text('Cancelar'),
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(),
-                                      ),
-                                      ElevatedButton.icon(
-                                        icon: const Icon(
-                                          FontAwesomeIcons.trash,
-                                        ),
-                                        label: const Text('Excluir'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: expenseColor,
-                                        ),
-                                        onPressed: () {
-                                          widget.onDeleteCategory(cat.id);
-                                          Navigator.of(context).pop();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
+              trailing: const Icon(FontAwesomeIcons.chevronRight),
+              onTap: _showCustomCategoriesListDialog,
             ),
           ),
 
@@ -4292,65 +4433,104 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
-  // --- Login Mock para Testes (delegado ao serviço de autenticação) ---
-  void _mockLogin({String? email, String? password}) async {
+  // --- Login com email/senha ---
+  Future<void> _emailLogin({
+    required String email,
+    required String password,
+    required BuildContext loginContext,
+  }) async {
     try {
       final user = await _authService.signIn(email: email, password: password);
       if (user != null) {
+        // Salva email para biometria
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('biometricUserEmail', user.email);
         setState(() {
           _currentUser = user;
           _selectedIndex = 0;
         });
+        _saveCachedData();
         _showWelcomeDialog(user);
       }
     } catch (e) {
-      _showErrorSnackBar('Erro no login mock');
+      showCenteredAlertModal(
+        context: loginContext,
+        title: 'Erro ao entrar',
+        message: e.toString().replaceFirst('Exception: ', ''),
+        icon: FontAwesomeIcons.circleExclamation,
+        iconColor: expenseColor,
+      );
+    }
+  }
+
+  // --- Cadastro com email/senha e auto-login ---
+  Future<void> _emailSignUp({
+    required String name,
+    required String email,
+    required String password,
+    required BuildContext signUpContext,
+  }) async {
+    try {
+      final user = await _authService.signUp(
+        name: name,
+        email: email,
+        password: password,
+      );
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('biometricUserEmail', user.email);
+        setState(() {
+          _currentUser = user;
+          _selectedIndex = 0;
+        });
+        _saveCachedData();
+        // Fecha a tela de cadastro e mostra boas-vindas
+        if (Navigator.canPop(signUpContext)) {
+          Navigator.of(signUpContext).pop();
+        }
+        _showWelcomeDialog(user);
+      }
+    } catch (e) {
+      showCenteredAlertModal(
+        context: signUpContext,
+        title: 'Erro no cadastro',
+        message: e.toString().replaceFirst('Exception: ', ''),
+        icon: FontAwesomeIcons.circleExclamation,
+        iconColor: expenseColor,
+      );
     }
   }
 
   Future<void> _biometricLogin() async {
+    final auth = LocalAuthentication();
     try {
-      // Try to authenticate using device biometrics (fingerprint, face, iris)
-      // This requires the local_auth package to be added to pubspec.yaml
-      // For now, we use a mock implementation that simulates authentication
+      final canCheck = await auth.canCheckBiometrics;
+      final isDeviceSupported = await auth.isDeviceSupported();
 
-      // In a production app, uncomment the code below after adding local_auth:
-      /*
-      final LocalAuthentication auth = LocalAuthentication();
-      final List<BiometricType> availableBiometrics = 
-          await auth.getAvailableBiometrics();
-      
-      bool authenticated = false;
-      if (availableBiometrics.isNotEmpty) {
-        try {
-          authenticated = await auth.authenticate(
-            localizedReason: 'Autentique-se com sua biometria',
-            options: const AuthenticationOptions(
-              stickyAuth: true,
-              biometricOnly: true,
-            ),
-          );
-        } on PlatformException catch (e) {
-          _showErrorSnackBar('Erro de biometria: ${e.message}');
-          return;
-        }
-      } else {
-        _showErrorSnackBar('Nenhuma biometria disponível no dispositivo');
+      if (!canCheck && !isDeviceSupported) {
+        _showErrorSnackBar('Biometria ou bloqueio de tela não disponível neste dispositivo');
         return;
       }
-      */
 
-      // Mock implementation for testing
-      await Future.delayed(const Duration(milliseconds: 1500));
-      bool authenticated = true;
+      bool authenticated = false;
+      try {
+        authenticated = await auth.authenticate(
+          localizedReason: 'Use sua biometria ou senha do dispositivo para entrar',
+          options: const AuthenticationOptions(
+            stickyAuth: true,
+            biometricOnly: false, // permite PIN/senha do dispositivo também
+          ),
+        );
+      } on PlatformException catch (e) {
+        _showErrorSnackBar('Erro de autenticação: ${e.message}');
+        return;
+      }
 
       if (authenticated) {
-        // Recuperar o email do usuário armazenado e fazer login via auth service
         final prefs = await SharedPreferences.getInstance();
         final savedEmail = prefs.getString('biometricUserEmail');
 
         if (savedEmail != null && savedEmail.isNotEmpty) {
-          // Fazer login com o mesmo auth service usado no Google
           final user = await _authService.signIn(email: savedEmail);
           if (user != null) {
             setState(() {
@@ -4837,16 +5017,48 @@ class _MainAppState extends State<MainApp> {
       return;
     }
     setState(() {
-      // Adiciona uma nova transação com ID mock
-      _transactions.add(
-        Transaction.fromMap({
-          'id': 't${DateTime.now().millisecondsSinceEpoch}',
-          'description': transaction.description,
-          'amount': transaction.amount,
-          'categoryId': transaction.categoryId,
-          'date': transaction.date.toIso8601String().substring(0, 10),
-        }),
-      );
+      if (transaction.isRecurring &&
+          transaction.recurringStartMonth != null &&
+          transaction.recurringEndMonth != null) {
+        // Gera uma transação por mês no intervalo definido
+        final start = DateTime.parse('${transaction.recurringStartMonth}-01');
+        final end = DateTime.parse('${transaction.recurringEndMonth}-01');
+        DateTime current = DateTime(start.year, start.month);
+        int idx = 0;
+        while (!current.isAfter(end)) {
+          // Mantém o dia original da data, ajustando mês/ano
+          final day = transaction.date.day;
+          final daysInMonth = DateUtils.getDaysInMonth(current.year, current.month);
+          final adjustedDay = day.clamp(1, daysInMonth);
+          final txDate = DateTime(current.year, current.month, adjustedDay);
+          _transactions.add(
+            Transaction.fromMap({
+              'id': 't${DateTime.now().millisecondsSinceEpoch}_$idx',
+              'description': transaction.description,
+              'amount': transaction.amount,
+              'categoryId': transaction.categoryId,
+              'date': txDate.toIso8601String().substring(0, 10),
+              'isPaid': false,
+              'isRecurring': true,
+              'recurringStartMonth': transaction.recurringStartMonth,
+              'recurringEndMonth': transaction.recurringEndMonth,
+            }),
+          );
+          current = DateTime(current.year, current.month + 1);
+          idx++;
+        }
+      } else {
+        _transactions.add(
+          Transaction.fromMap({
+            'id': 't${DateTime.now().millisecondsSinceEpoch}',
+            'description': transaction.description,
+            'amount': transaction.amount,
+            'categoryId': transaction.categoryId,
+            'date': transaction.date.toIso8601String().substring(0, 10),
+            'isPaid': false,
+          }),
+        );
+      }
     });
     _saveCachedData();
     // Fechar o modal
@@ -4947,6 +5159,72 @@ class _MainAppState extends State<MainApp> {
                         });
                         _saveCachedData();
                         Navigator.of(context).pop();
+                        // Modal de sucesso igual ao de atualização
+                        showDialog(
+                          context: context,
+                          barrierDismissible: true,
+                          builder: (BuildContext ctx) {
+                            Future.delayed(
+                              const Duration(milliseconds: 1200),
+                              () {
+                                if (Navigator.canPop(ctx)) {
+                                  Navigator.of(ctx).pop();
+                                }
+                              },
+                            );
+                            return Dialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24.0,
+                                  horizontal: 24.0,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 72,
+                                      height: 72,
+                                      decoration: BoxDecoration(
+                                        color: expenseColor.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          FontAwesomeIcons.trash,
+                                          color: expenseColor,
+                                          size: 36,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Dados excluídos',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'A transação foi excluída com sucesso.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          ctx,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: expenseColor,
@@ -4999,6 +5277,8 @@ class _MainAppState extends State<MainApp> {
 
     for (var t in _transactions) {
       if (t.date.year == month.year && t.date.month == month.month) {
+        // Considerar apenas transações pagas/recebidas no dashboard
+        if (!t.isPaid) continue;
         final category = _getCategoryById(t.categoryId);
         if (category.type == 'income') {
           totalIncome += t.amount;
@@ -5067,6 +5347,85 @@ class _MainAppState extends State<MainApp> {
               // Espaço
               const SizedBox(height: 40),
 
+              // Banner DEV — visível apenas em debug
+              if (kDebugMode) ...[
+                GestureDetector(
+                  onTap: () {
+                    emailController.text = devTestEmail;
+                    passwordController.text = devTestPassword;
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2E),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF89DCEB),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.codeBranch,
+                              size: 13,
+                              color: Color(0xFF89DCEB),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'AMBIENTE DE DESENVOLVIMENTO',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF89DCEB),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _DevCredentialRow(
+                          label: 'E-mail',
+                          value: devTestEmail,
+                        ),
+                        const SizedBox(height: 4),
+                        _DevCredentialRow(
+                          label: 'Senha',
+                          value: devTestPassword,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.handPointer,
+                              size: 11,
+                              color: Color(0xFFCDD6F4),
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Toque para preencher',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFCDD6F4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
               // Formulário de Email e Senha
               Column(
                 children: [
@@ -5101,7 +5460,28 @@ class _MainAppState extends State<MainApp> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+
+                  // Link "Esqueceu a senha?"
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                Scaffold(body: _buildForgotPasswordScreen()),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Esqueceu a senha?',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
 
                   // Botão Entrar
                   SizedBox(
@@ -5110,16 +5490,16 @@ class _MainAppState extends State<MainApp> {
                       onPressed: () {
                         if (emailController.text.isNotEmpty &&
                             passwordController.text.isNotEmpty) {
-                          // Simulação de login com email/senha
-                          _mockLogin(
-                            email: emailController.text,
+                          _emailLogin(
+                            email: emailController.text.trim(),
                             password: passwordController.text,
+                            loginContext: context,
                           );
                         } else {
                           showCenteredAlertModal(
                             context: context,
                             title: 'Campos Vazios',
-                            message: 'Preencha email e senha',
+                            message: 'Preencha e-mail e senha',
                             icon: FontAwesomeIcons.circleExclamation,
                             iconColor: expenseColor,
                           );
@@ -5181,9 +5561,7 @@ class _MainAppState extends State<MainApp> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: useMockAuth
-                      ? () => _mockLogin()
-                      : _signInWithGoogle,
+                  onPressed: _signInWithGoogle,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: Colors.white,
@@ -5437,22 +5815,13 @@ class _MainAppState extends State<MainApp> {
                           return;
                         }
 
-                        // Se passou em todas as validações
-                        showCenteredAlertModal(
-                          context: context,
-                          title: 'Sucesso',
-                          message:
-                              'Conta criada com sucesso! Você pode fazer login agora.',
-                          icon: FontAwesomeIcons.circleCheck,
-                          iconColor: successColor,
+                        // Chama cadastro real com auto-login
+                        _emailSignUp(
+                          name: nameController.text.trim(),
+                          email: emailController.text.trim(),
+                          password: passwordController.text,
+                          signUpContext: context,
                         );
-
-                        // Navegar de volta após 2 segundos
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        });
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -5504,6 +5873,211 @@ class _MainAppState extends State<MainApp> {
     );
   }
 
+  // --- Tela de Redefinição de Senha ---
+  Widget _buildForgotPasswordScreen() {
+    final emailController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+
+              // Voltar e Título
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(FontAwesomeIcons.chevronLeft),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Redefinir Senha',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                'Informe seu e-mail cadastrado e a nova senha.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // E-mail
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'E-mail cadastrado',
+                  prefixIcon: const Icon(FontAwesomeIcons.envelope),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Nova Senha
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Nova senha',
+                  prefixIcon: const Icon(FontAwesomeIcons.lock),
+                  helperText: 'Mínimo 6 caracteres',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Confirmar Nova Senha
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Confirmar nova senha',
+                  prefixIcon: const Icon(FontAwesomeIcons.lock),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Botão Redefinir
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final email = emailController.text.trim();
+                  final newPass = newPasswordController.text;
+                  final confirmPass = confirmPasswordController.text;
+                  final ctx = context;
+                  final nav = Navigator.of(context);
+
+                  if (email.isEmpty || !email.contains('@')) {
+                    showCenteredAlertModal(
+                      context: ctx,
+                      title: 'Erro',
+                      message: 'Informe um e-mail válido',
+                      icon: FontAwesomeIcons.circleExclamation,
+                      iconColor: expenseColor,
+                    );
+                    return;
+                  }
+                  if (newPass.length < 6) {
+                    showCenteredAlertModal(
+                      context: ctx,
+                      title: 'Erro',
+                      message: 'A senha deve ter no mínimo 6 caracteres',
+                      icon: FontAwesomeIcons.circleExclamation,
+                      iconColor: expenseColor,
+                    );
+                    return;
+                  }
+                  if (newPass != confirmPass) {
+                    showCenteredAlertModal(
+                      context: ctx,
+                      title: 'Erro',
+                      message: 'As senhas não correspondem',
+                      icon: FontAwesomeIcons.circleExclamation,
+                      iconColor: expenseColor,
+                    );
+                    return;
+                  }
+
+                  final ok = await _authService.resetPassword(
+                    email: email,
+                    newPassword: newPass,
+                  );
+
+                  if (!mounted) return;
+
+                  if (ok) {
+                    showCenteredAlertModal(
+                      context: ctx,
+                      title: 'Senha redefinida!',
+                      message: 'Faça login com sua nova senha.',
+                      icon: FontAwesomeIcons.circleCheck,
+                      iconColor: successColor,
+                    );
+                    Future.delayed(const Duration(milliseconds: 2600), () {
+                      if (mounted) nav.pop();
+                    });
+                  } else {
+                    showCenteredAlertModal(
+                      context: ctx,
+                      title: 'E-mail não encontrado',
+                      message: 'Nenhuma conta cadastrada com esse e-mail.',
+                      icon: FontAwesomeIcons.circleExclamation,
+                      iconColor: expenseColor,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(FontAwesomeIcons.key),
+                label: const Text(
+                  'Redefinir Senha',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(FontAwesomeIcons.arrowLeft, size: 14),
+                  label: const Text(
+                    'Voltar ao login',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showNewTransactionModal([
     Transaction? transactionToEdit,
     String? defaultFilterType,
@@ -5524,17 +6098,10 @@ class _MainAppState extends State<MainApp> {
             ),
             child: SingleChildScrollView(
               child: Padding(
-                // Ajusta o padding para o teclado (viewInsets)
-                padding: EdgeInsets.only(
-                  top: 20,
-                  left: 20,
-                  right: 20,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                ),
+                padding: const EdgeInsets.all(24.0),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    // Evita ficar muito largo em telas grandes
-                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  constraints: const BoxConstraints(
+                    maxWidth: 400,
                     minWidth: 300,
                   ),
                   child: NewTransactionForm(
@@ -5727,9 +6294,8 @@ class _MainAppState extends State<MainApp> {
               ],
               selectedIndex: _selectedIndex,
               backgroundColor: Theme.of(context).brightness == Brightness.light
-                  ? const Color.fromARGB(255, 0, 52, 78)
-                  : Theme.of(context).cardTheme.color ??
-                        Theme.of(context).colorScheme.surface,
+                  ? const Color.fromARGB(255, 0, 52, 78) // Cor para tema claro
+                  : const Color(0xFF001F3F), // Cor para tema escuro
               onTap: (index) {
                 setState(() => _selectedIndex = index);
               },

@@ -1,6 +1,5 @@
 name: appfinancas
-description: "A new Flutter project."
-# The following line prevents the package from being accidentally published to
+description: "Gerenciador de finanças pessoais para controle de gastos e receitas, com suporte a múltiplas contas, categorias personalizadas, gráficos de análise financeira."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
@@ -16,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.3+2
 
 environment:
   sdk: ^3.10.0
@@ -51,6 +50,9 @@ dependencies:
   # Para abrir URLs e e-mails
   url_launcher: ^6.2.6
   
+  # Biometria / senha do dispositivo
+  local_auth: ^2.3.0
+
   # Internacionalização - para suporte a PT-BR
   intl: ^0.20.0
   

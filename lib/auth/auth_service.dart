@@ -1,12 +1,26 @@
 import '../models/user.dart';
 
 abstract class AuthService {
-  /// Attempts to sign in the user with email and password and returns the authenticated [User], or null.
+  /// Faz login com email/senha. Retorna o [User] autenticado ou null.
   Future<User?> signIn({String? email, String? password});
 
-  /// Signs out the current user.
+  /// Cria uma conta com nome, email e senha. Retorna o [User] criado ou null.
+  Future<User?> signUp({
+    required String name,
+    required String email,
+    required String password,
+  });
+
+  /// Redefine a senha do usuário com o email informado.
+  /// Retorna true se encontrou o usuário e atualizou a senha.
+  Future<bool> resetPassword({
+    required String email,
+    required String newPassword,
+  });
+
+  /// Faz logout do usuário atual.
   Future<void> signOut();
 
-  /// Returns the current signed in user, if any.
+  /// Retorna o usuário atualmente autenticado, se houver.
   User? get currentUser;
 }

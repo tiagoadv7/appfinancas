@@ -35,6 +35,24 @@ class GoogleAuthService implements AuthService {
   }
 
   @override
+  Future<User?> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    // Google Sign-In não suporta criação via email/senha — delega ao mock
+    throw UnimplementedError('Use MockAuthService para cadastro com email/senha');
+  }
+
+  @override
+  Future<bool> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    throw UnimplementedError('Use MockAuthService para redefinição de senha');
+  }
+
+  @override
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
