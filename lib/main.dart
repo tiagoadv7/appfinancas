@@ -11,11 +11,14 @@ import 'auth/auth_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth/auth_service.dart';
 import 'auth/mock_auth_service.dart';
-import 'auth/google_auth_service.dart';
+import 'auth/firebase_auth_service.dart';
+import 'services/firestore_service.dart';
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // ===================================================================
 // 1. CONSTANTES, MODELOS E UTILITÁRIOS (Unificados no arquivo principal)
@@ -209,7 +212,7 @@ class Transaction {
   final bool isPaid;
   final bool isRecurring;
   final String? recurringStartMonth; // formato 'yyyy-MM'
-  final String? recurringEndMonth;   // formato 'yyyy-MM'
+  final String? recurringEndMonth; // formato 'yyyy-MM'
   // Controla pago/não-pago por mês para transações recorrentes: {'yyyy-MM': true}
   final Map<String, bool> paidByMonth;
 
@@ -370,11 +373,10 @@ class _BottomBarWithNotchState extends State<BottomBarWithNotch> {
                                             boxShadow: hovered
                                                 ? [
                                                     BoxShadow(
-                                                      color:
-                                                          Colors.black
-                                                              .withValues(
-                                                                alpha: 0.06,
-                                                              ),
+                                                      color: Colors.black
+                                                          .withValues(
+                                                            alpha: 0.06,
+                                                          ),
                                                       blurRadius: 6,
                                                       offset: const Offset(
                                                         0,
@@ -831,8 +833,14 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   bool _isRecurring = false;
-  DateTime _recurringStartMonth = DateTime(DateTime.now().year, DateTime.now().month);
-  DateTime _recurringEndMonth = DateTime(DateTime.now().year, DateTime.now().month + 1);
+  DateTime _recurringStartMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+  );
+  DateTime _recurringEndMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month + 1,
+  );
 
   // Função auxiliar para formatar data com segurança
   String _formatDateSafe(DateTime date) {
@@ -886,8 +894,12 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
         'date': _selectedDate.toIso8601String().substring(0, 10),
         'isPaid': false,
         'isRecurring': _isRecurring,
-        'recurringStartMonth': _isRecurring ? _monthKey(_recurringStartMonth) : null,
-        'recurringEndMonth': _isRecurring ? _monthKey(_recurringEndMonth) : null,
+        'recurringStartMonth': _isRecurring
+            ? _monthKey(_recurringStartMonth)
+            : null,
+        'recurringEndMonth': _isRecurring
+            ? _monthKey(_recurringEndMonth)
+            : null,
       };
       final newTransaction = Transaction.fromMap(map);
 
@@ -1230,7 +1242,10 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                               _recurringStartMonth = d;
                               // Garante que fim >= início
                               if (_recurringEndMonth.isBefore(d)) {
-                                _recurringEndMonth = DateTime(d.year, d.month + 1);
+                                _recurringEndMonth = DateTime(
+                                  d.year,
+                                  d.month + 1,
+                                );
                               }
                             }),
                           ),
@@ -1311,10 +1326,7 @@ class _DevCredentialRow extends StatelessWidget {
           width: 44,
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFFA6ADC8),
-            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFFA6ADC8)),
           ),
         ),
         const SizedBox(width: 6),
@@ -1347,8 +1359,18 @@ class _MonthPickerTile extends StatelessWidget {
   });
 
   static const List<String> _months = [
-    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
   ];
 
   Future<void> _pick(BuildContext context) async {
@@ -1358,110 +1380,119 @@ class _MonthPickerTile extends StatelessWidget {
     await showDialog(
       context: context,
       builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setS) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Text(label),
-            content: SizedBox(
-              width: 280,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Seletor de ano
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(FontAwesomeIcons.chevronLeft, size: 14),
-                        onPressed: () => setS(() => selectedYear--),
-                      ),
-                      Text(
-                        '$selectedYear',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(FontAwesomeIcons.chevronRight, size: 14),
-                        onPressed: () => setS(() => selectedYear++),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Grade de meses
-                  GridView.count(
-                    crossAxisCount: 4,
-                    shrinkWrap: true,
-                    mainAxisSpacing: 6,
-                    crossAxisSpacing: 6,
-                    childAspectRatio: 1.6,
-                    children: List.generate(12, (i) {
-                      final month = i + 1;
-                      final isSelected =
-                          selectedYear == value.year && month == selectedMonth;
-                      final isDisabled = minDate != null &&
-                          DateTime(selectedYear, month)
-                              .isBefore(minDate!);
-                      return GestureDetector(
-                        onTap: isDisabled
-                            ? null
-                            : () => setS(() => selectedMonth = month),
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? primaryColor
-                                : isDisabled
-                                    ? Colors.grey[100]
-                                    : Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(label),
+              content: SizedBox(
+                width: 280,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Seletor de ano
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            FontAwesomeIcons.chevronLeft,
+                            size: 14,
                           ),
-                          child: Text(
-                            _months[i],
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                          onPressed: () => setS(() => selectedYear--),
+                        ),
+                        Text(
+                          '$selectedYear',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            FontAwesomeIcons.chevronRight,
+                            size: 14,
+                          ),
+                          onPressed: () => setS(() => selectedYear++),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Grade de meses
+                    GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                      childAspectRatio: 1.6,
+                      children: List.generate(12, (i) {
+                        final month = i + 1;
+                        final isSelected =
+                            selectedYear == value.year &&
+                            month == selectedMonth;
+                        final isDisabled =
+                            minDate != null &&
+                            DateTime(selectedYear, month).isBefore(minDate!);
+                        return GestureDetector(
+                          onTap: isDisabled
+                              ? null
+                              : () => setS(() => selectedMonth = month),
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
                               color: isSelected
-                                  ? Colors.white
+                                  ? primaryColor
                                   : isDisabled
-                                      ? Colors.grey[400]
-                                      : Colors.black87,
+                                  ? Colors.grey[100]
+                                  : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _months[i],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? Colors.white
+                                    : isDisabled
+                                    ? Colors.grey[400]
+                                    : Colors.black87,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                        );
+                      }),
+                    ),
+                  ],
                 ),
-                onPressed: () {
-                  onChanged(DateTime(selectedYear, selectedMonth));
-                  Navigator.of(ctx).pop();
-                },
-                child: const Text('OK'),
               ),
-            ],
-          );
-        });
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    onChanged(DateTime(selectedYear, selectedMonth));
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -1488,7 +1519,11 @@ class _MonthPickerTile extends StatelessWidget {
             const SizedBox(height: 2),
             Row(
               children: [
-                const Icon(FontAwesomeIcons.calendar, size: 12, color: primaryColor),
+                const Icon(
+                  FontAwesomeIcons.calendar,
+                  size: 12,
+                  color: primaryColor,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '$monthName/${value.year}',
@@ -1848,14 +1883,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           final monthKey =
               '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
           final day = t.date.day;
-          final daysInMonth =
-              DateUtils.getDaysInMonth(_selectedDate.year, _selectedDate.month);
+          final daysInMonth = DateUtils.getDaysInMonth(
+            _selectedDate.year,
+            _selectedDate.month,
+          );
           final adjustedDay = day.clamp(1, daysInMonth);
           final map = t.toMap();
           // ID virtual com mês embutido para controle de pago por mês
           map['id'] = '${t.id}@$monthKey';
-          map['date'] =
-              '$monthKey-${adjustedDay.toString().padLeft(2, '0')}';
+          map['date'] = '$monthKey-${adjustedDay.toString().padLeft(2, '0')}';
           // isPaid individual por mês
           map['isPaid'] = t.paidByMonth[monthKey] ?? false;
           expandedForMonth.add(Transaction.fromMap(map));
@@ -4151,8 +4187,15 @@ class _SplashScreenState extends State<SplashScreen>
 }
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   // Inicializar intl para PT-BR (necessário para formatação de datas)
   await initializeDateFormatting('pt_BR', null);
+  // Inicializar Firebase (somente em produção; mock não precisa)
+  if (!useMockAuth) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   runApp(const MyApp());
 }
 
@@ -4427,8 +4470,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Configure auth service (mock or Google) based on config
-    _authService = useMockAuth ? MockAuthService() : GoogleAuthService();
+    // Configure auth service: mock em debug, Firebase em produção
+    _authService = useMockAuth ? MockAuthService() : FirebaseAuthService();
+    // Detecta biometrias disponíveis para exibir ícone/label corretos
+    _detectBiometrics();
     _loadCachedData().then((_) {
       // Auto-dispara biometria no login se o usuário já tinha entrado antes
       if (!kIsWeb && _currentUser == null && mounted) {
@@ -4450,97 +4495,200 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Bloqueia quando o app vai para segundo plano
-    if (state == AppLifecycleState.paused && !_isGuest) {
-      setState(() => _isLocked = true);
-    } else if (state == AppLifecycleState.resumed && _isLocked) {
-      // Dispara a autenticação automaticamente ao retornar do segundo plano
-      _unlockApp();
+  // Tipo de biometria disponível no dispositivo
+  List<BiometricType> _availableBiometrics = [];
+
+  /// Detecta quais biometrias o dispositivo suporta (Face ID, digital, íris…)
+  Future<void> _detectBiometrics() async {
+    if (kIsWeb) return;
+    try {
+      final auth = LocalAuthentication();
+      final supported = await auth.isDeviceSupported();
+      if (supported) {
+        _availableBiometrics = await auth.getAvailableBiometrics();
+      }
+    } on PlatformException {
+      _availableBiometrics = [];
     }
   }
 
+  /// Retorna o ícone correto conforme o tipo de biometria disponível.
+  IconData get _biometricIcon {
+    if (_availableBiometrics.contains(BiometricType.face)) {
+      return FontAwesomeIcons.faceSmile; // Face ID
+    }
+    if (_availableBiometrics.contains(BiometricType.fingerprint) ||
+        _availableBiometrics.contains(BiometricType.strong)) {
+      return FontAwesomeIcons.fingerprint; // Touch ID / digital
+    }
+    return FontAwesomeIcons.lock; // PIN / senha do dispositivo
+  }
+
+  /// Texto do botão conforme a biometria disponível.
+  String get _biometricLabel {
+    if (_availableBiometrics.contains(BiometricType.face)) {
+      return 'Desbloquear com Face ID';
+    }
+    if (_availableBiometrics.contains(BiometricType.fingerprint) ||
+        _availableBiometrics.contains(BiometricType.strong)) {
+      return 'Desbloquear com Digital';
+    }
+    return 'Desbloquear com PIN';
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Sem bloqueio na Web — biometria não se aplica
+    if (kIsWeb) return;
+
+    if (state == AppLifecycleState.paused && !_isGuest) {
+      // Bloqueia ao ir para segundo plano — igual ao WhatsApp
+      setState(() => _isLocked = true);
+    }
+    // Não dispara biometria automaticamente ao voltar —
+    // o usuário precisa tocar no botão (comportamento WhatsApp)
+  }
+
   Future<void> _unlockApp() async {
+    if (kIsWeb) {
+      if (mounted) setState(() => _isLocked = false);
+      return;
+    }
     final auth = LocalAuthentication();
     try {
       final isSupported = await auth.isDeviceSupported();
-      if (isSupported) {
-        final authenticated = await auth.authenticate(
-          localizedReason: 'Desbloqueie para acessar o FinançasApp',
-          options: const AuthenticationOptions(
-            stickyAuth: true,
-            biometricOnly: false,
-          ),
-        );
-        if (authenticated && mounted) {
-          setState(() => _isLocked = false);
-        }
-      } else {
-        // Dispositivo sem suporte a biometria: desbloqueia direto
+      if (!isSupported) {
         if (mounted) setState(() => _isLocked = false);
+        return;
+      }
+
+      // Atualiza os biométricos disponíveis antes de mostrar o diálogo
+      _availableBiometrics = await auth.getAvailableBiometrics();
+      if (mounted) setState(() {}); // atualiza ícone na tela de bloqueio
+
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Use sua biometria ou PIN para acessar o FinançasApp',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false, // permite PIN/senha do dispositivo também
+        ),
+      );
+      if (authenticated && mounted) {
+        setState(() => _isLocked = false);
       }
     } on PlatformException {
+      // Erro na plataforma (ex: biometria não configurada) — desbloqueia direto
       if (mounted) setState(() => _isLocked = false);
     }
   }
 
   Widget _buildLockScreen() {
+    final userName = _currentUser?.name ?? '';
+    final photoUrl = _currentUser?.photoUrl;
+    final initials = userName.isNotEmpty
+        ? userName.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase()
+        : '?';
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1628),
+      backgroundColor: const Color(0xFF111827),
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 48),
-            // Logo + nome do app
-            const AppLogo(width: 64, height: 64, fit: BoxFit.contain),
-            const SizedBox(height: 12),
-            const Text(
-              'FinançasApp',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Spacer(),
-            // Ícone de cadeado
+            const SizedBox(height: 56),
+
+            // ── Avatar do usuário ──────────────────────────────────────────
             Container(
-              width: 96,
-              height: 96,
+              width: 88,
+              height: 88,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 2,
+                ),
+                image: photoUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(photoUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                color: photoUrl == null
+                    ? primaryColor.withValues(alpha: 0.3)
+                    : null,
               ),
-              child: const Icon(
-                FontAwesomeIcons.lock,
-                color: Colors.white,
-                size: 40,
-              ),
+              child: photoUrl == null
+                  ? Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Aplicativo bloqueado',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+
+            // ── Nome do usuário ────────────────────────────────────────────
             Text(
-              'Para continuar, confirme sua identidade.',
+              userName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _currentUser?.email ?? '',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 13,
+              ),
+            ),
+
+            const Spacer(),
+
+            // ── Ícone biométrico central ───────────────────────────────────
+            GestureDetector(
+              onTap: _unlockApp,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.07),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(
+                  _biometricIcon,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  size: 36,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Texto de dica ─────────────────────────────────────────────
+            Text(
+              'Toque no ícone ou no botão para desbloquear',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 13,
               ),
               textAlign: TextAlign.center,
             ),
+
             const Spacer(),
-            // Botão desbloquear
+
+            // ── Botão principal — igual ao WhatsApp ────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 32),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -4548,39 +4696,35 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(28),
                     ),
-                    elevation: 6,
+                    elevation: 0,
                   ),
-                  icon: const Icon(FontAwesomeIcons.fingerprint, size: 20),
-                  label: const Text(
-                    'Desbloquear',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  icon: Icon(_biometricIcon, size: 18),
+                  label: Text(
+                    _biometricLabel,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            // Sair da conta
-            TextButton.icon(
+            const SizedBox(height: 14),
+
+            // ── Trocar conta ──────────────────────────────────────────────
+            TextButton(
               onPressed: () {
                 setState(() => _isLocked = false);
                 _signOut();
               },
-              icon: Icon(
-                FontAwesomeIcons.arrowRightFromBracket,
-                size: 14,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-              label: Text(
-                'Sair da conta',
+              child: Text(
+                'Trocar de conta',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: Colors.white.withValues(alpha: 0.4),
                   fontSize: 13,
                 ),
               ),
@@ -4665,7 +4809,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   Future<void> _signInWithGoogle() async {
     try {
-      final user = await _authService.signIn();
+      final user = await _authService.signInWithGoogle();
       if (user != null) {
         setState(() {
           _currentUser = user;
@@ -4675,8 +4819,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         _showWelcomeDialog(user);
       }
     } catch (error) {
-      // mantém compatibilidade com mensagens antigas
-      _showErrorSnackBar('Erro ao fazer login: $error');
+      _showErrorSnackBar('Erro ao entrar com Google: $error');
     }
   }
 
@@ -4755,14 +4898,17 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       final isDeviceSupported = await auth.isDeviceSupported();
 
       if (!canCheck && !isDeviceSupported) {
-        _showErrorSnackBar('Biometria ou bloqueio de tela não disponível neste dispositivo');
+        _showErrorSnackBar(
+          'Biometria ou bloqueio de tela não disponível neste dispositivo',
+        );
         return;
       }
 
       bool authenticated = false;
       try {
         authenticated = await auth.authenticate(
-          localizedReason: 'Use sua biometria ou senha do dispositivo para entrar',
+          localizedReason:
+              'Use sua biometria ou senha do dispositivo para entrar',
           options: const AuthenticationOptions(
             stickyAuth: true,
             biometricOnly: false, // permite PIN/senha do dispositivo também
@@ -4967,41 +5113,54 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     });
 
     // 2. Preparar e enviar o e-mail usando url_launcher
-    final subject = 'Você foi convidado para colaborar no FinançasApp!';
-    // URL pública do seu logo. Você precisa hospedar o logo em algum lugar.
-    // Ex: Firebase Storage, Imgur, etc.
-    const logoUrl =
-        'https://raw.githubusercontent.com/Tiago-Neves-dos-Santos/appfinancas/main/assets/images/logo_email.png';
+    // Nota: mailto: só suporta texto simples — HTML aparece como código bruto.
+    final subject = 'Convite para colaborar no Finanças App 💰';
+
+    final senderName = _currentUser?.name ?? 'um usuário';
+    final roleLabel = role == 'collaborator'
+        ? 'Colaborador'
+        : role == 'viewer'
+        ? 'Visualizador'
+        : 'Proprietário';
 
     final body =
-        '''
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-        <img src="$logoUrl" alt="FinançasApp Logo" width="100" style="margin-bottom: 20px;">
-        <h2 style="color: #4F46E5;">Convite para Colaborar</h2>
-        <p>Olá!</p>
-        <p>Você foi convidado por <strong>${_currentUser?.name ?? 'um usuário'}</strong> para colaborar em um painel financeiro no <strong>FinançasApp</strong>.</p>
-        <p>Sua função será de: <strong>$role</strong>.</p>
-        <p>Para aceitar, baixe o aplicativo e faça login com este e-mail.</p>
-        <br>
-        <a href="https://play.google.com/store" style="background-color: #4F46E5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-          Acessar o App
-        </a>
-        <hr style="margin: 30px 0;">
-        <p style="font-size: 12px; color: #888;">Se você não esperava este convite, pode ignorar este e-mail.</p>
-      </div>
-    ''';
+        '''Olá! 👋
+
+Você recebeu um convite para colaborar no Finanças App.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+  💼 CONVITE PARA COLABORAR
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+$senderName te convidou para fazer parte do painel financeiro dele no Finanças App.
+
+📋 Sua função: $roleLabel
+
+Para aceitar o convite:
+1. Baixe o Finanças App
+2. Crie sua conta com este e-mail
+3. Você será adicionado automaticamente
+
+🔗 Repositório do projeto:
+https://github.com/tiagoadv7/appfinancas
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+Se você não esperava este convite, pode ignorar este e-mail.
+
+Finanças App — Controle suas finanças com simplicidade.
+''';
 
     final Uri emailLaunchUri = Uri(
       scheme: 'mailto',
       path: email,
-      query:
-          'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
+      queryParameters: {'subject': subject, 'body': body},
     );
 
-    if (!await launchUrl(emailLaunchUri)) {
+    final launched = await launchUrl(emailLaunchUri);
+    if (!launched) {
       _showErrorSnackBar('Não foi possível abrir o app de e-mail.');
     } else {
-      await launchUrl(emailLaunchUri);
       _showSuccessSnackBar('Abra seu app de e-mail para enviar o convite.');
     }
   }
@@ -5287,17 +5446,19 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     final baseTs = DateTime.now().millisecondsSinceEpoch;
     // Armazena UMA transação base; a expansão por mês é feita na exibição
     setState(() {
-      _transactions.add(Transaction.fromMap({
-        'id': transaction.isRecurring ? 'r$baseTs' : 't$baseTs',
-        'description': transaction.description,
-        'amount': transaction.amount,
-        'categoryId': transaction.categoryId,
-        'date': transaction.date.toIso8601String().substring(0, 10),
-        'isPaid': false,
-        'isRecurring': transaction.isRecurring,
-        'recurringStartMonth': transaction.recurringStartMonth,
-        'recurringEndMonth': transaction.recurringEndMonth,
-      }));
+      _transactions.add(
+        Transaction.fromMap({
+          'id': transaction.isRecurring ? 'r$baseTs' : 't$baseTs',
+          'description': transaction.description,
+          'amount': transaction.amount,
+          'categoryId': transaction.categoryId,
+          'date': transaction.date.toIso8601String().substring(0, 10),
+          'isPaid': false,
+          'isRecurring': transaction.isRecurring,
+          'recurringStartMonth': transaction.recurringStartMonth,
+          'recurringEndMonth': transaction.recurringEndMonth,
+        }),
+      );
     });
 
     _saveCachedData();
@@ -5306,7 +5467,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       _selectedIndex = 1;
       // Navega o extrato para o mês inicial da recorrência
       if (transaction.isRecurring && transaction.recurringStartMonth != null) {
-        _extractFocusDate = DateTime.parse('${transaction.recurringStartMonth}-01');
+        _extractFocusDate = DateTime.parse(
+          '${transaction.recurringStartMonth}-01',
+        );
       }
     });
   }
@@ -5531,15 +5694,15 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         final selected = DateTime(month.year, month.month);
         matchesMonth = !selected.isBefore(start) && !selected.isAfter(end);
       } else {
-        matchesMonth =
-            t.date.year == month.year && t.date.month == month.month;
+        matchesMonth = t.date.year == month.year && t.date.month == month.month;
       }
       if (!matchesMonth) continue;
       // Considerar apenas transações pagas/recebidas no dashboard
       final monthKey =
           '${month.year}-${month.month.toString().padLeft(2, '0')}';
-      final isPaidForMonth =
-          t.isRecurring ? (t.paidByMonth[monthKey] ?? false) : t.isPaid;
+      final isPaidForMonth = t.isRecurring
+          ? (t.paidByMonth[monthKey] ?? false)
+          : t.isPaid;
       if (!isPaidForMonth) continue;
       final category = _getCategoryById(t.categoryId);
       if (category.type == 'income') {
@@ -5653,10 +5816,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        _DevCredentialRow(
-                          label: 'E-mail',
-                          value: devTestEmail,
-                        ),
+                        _DevCredentialRow(label: 'E-mail', value: devTestEmail),
                         const SizedBox(height: 4),
                         _DevCredentialRow(
                           label: 'Senha',

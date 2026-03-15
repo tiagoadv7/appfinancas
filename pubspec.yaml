@@ -34,31 +34,44 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # Font Awesome Icons
   font_awesome_flutter: ^10.7.0
-  
+
   # Google Sign-In
   google_sign_in: ^6.1.4
-  
+
   # Estado compartilhado
   provider: ^6.0.0
-  
+
   # SVG support for rendering app logo
   flutter_svg: ^2.0.7
 
   # Para abrir URLs e e-mails
   url_launcher: ^6.2.6
-  
+
   # Biometria / senha do dispositivo
   local_auth: ^2.3.0
 
   # Internacionalização - para suporte a PT-BR
   intl: ^0.20.0
-  
+
   # Localizações do Flutter para Material Design
   flutter_localizations:
     sdk: flutter
+
+  # ─── Firebase ───────────────────────────────────────────────────────────────
+  # Core Firebase SDK (obrigatório para todos os outros pacotes Firebase)
+  firebase_core: ^3.6.0
+
+  # Firebase Authentication (email/senha + Google)
+  firebase_auth: ^5.3.1
+
+  # Cloud Firestore (banco de dados NoSQL em tempo real)
+  cloud_firestore: ^5.4.4
+
+  # SHA-256 hashing para senhas antes de enviar ao Firebase
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

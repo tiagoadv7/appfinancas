@@ -4,6 +4,9 @@ abstract class AuthService {
   /// Faz login com email/senha. Retorna o [User] autenticado ou null.
   Future<User?> signIn({String? email, String? password});
 
+  /// Faz login via Google (OAuth). Retorna o [User] autenticado ou null.
+  Future<User?> signInWithGoogle();
+
   /// Cria uma conta com nome, email e senha. Retorna o [User] criado ou null.
   Future<User?> signUp({
     required String name,

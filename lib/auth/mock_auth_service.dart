@@ -159,6 +159,21 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<User?> signInWithGoogle() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    // Simula login Google em modo de teste (debug)
+    _user = User(
+      id: 'google-mock-user',
+      email: 'google.teste@gmail.com',
+      name: 'Usuário Google (Teste)',
+      photoUrl: null,
+      role: 'owner',
+      salary: 0.0,
+    );
+    return _user;
+  }
+
+  @override
   Future<void> signOut() async {
     await Future.delayed(const Duration(milliseconds: 100));
     _user = null;

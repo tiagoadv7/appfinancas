@@ -32,6 +32,31 @@
 
   <title>Finanças</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       Firebase Web SDK — substitua os valores abaixo com os do seu projeto.
+       Obtenha em: Firebase Console → Project settings → Web app → SDK config
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getAuth }        from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+    import { getFirestore }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyCVA3fWvpd4MoD_qlNFKXvsuFZFvB3qKxw",
+      authDomain:        "appfinancas-9d7a3.firebaseapp.com",
+      projectId:         "appfinancas-9d7a3",
+      storageBucket:     "appfinancas-9d7a3.firebasestorage.app",
+      messagingSenderId: "620656474886",
+      appId:             "1:620656474886:web:5b5c6f1b1dd15c57887c87",
+      measurementId:     "G-E77G46XTFV"
+    };
+
+    // Inicializa o Firebase globalmente para o Flutter Web
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
