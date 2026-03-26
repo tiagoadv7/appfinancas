@@ -7,6 +7,9 @@ abstract class AuthService {
   /// Faz login via Google (OAuth). Retorna o [User] autenticado ou null.
   Future<User?> signInWithGoogle();
 
+  /// Restaura sessão pelo email sem exigir senha (usado após autenticação biométrica).
+  Future<User?> signInWithBiometric(String email);
+
   /// Cria uma conta com nome, email e senha. Retorna o [User] criado ou null.
   Future<User?> signUp({
     required String name,

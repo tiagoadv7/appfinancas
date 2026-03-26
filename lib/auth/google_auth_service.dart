@@ -16,6 +16,12 @@ class GoogleAuthService implements AuthService {
   User? get currentUser => _user;
 
   @override
+  Future<User?> signInWithBiometric(String email) async {
+    // GoogleAuthService não gerencia sessões locais — delega para FirebaseAuthService
+    throw UnimplementedError('Use FirebaseAuthService para login biométrico');
+  }
+
+  @override
   Future<User?> signIn({String? email, String? password}) async {
     try {
       final account = await _googleSignIn.signIn();
@@ -33,6 +39,9 @@ class GoogleAuthService implements AuthService {
       rethrow;
     }
   }
+
+  @override
+  Future<User?> signInWithGoogle() => signIn();
 
   @override
   Future<User?> signUp({

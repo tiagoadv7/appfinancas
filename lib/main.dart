@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:convert';
@@ -16,7 +18,6 @@ import 'services/firestore_service.dart';
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:flutter/services.dart' show PlatformException;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -190,10 +191,10 @@ class Category {
   final String iconName;
 
   Category.fromMap(Map<String, dynamic> data)
-    : id = data['id'],
-      name = data['name'],
-      type = data['type'],
-      iconName = data['iconName'] ?? data['icon'] ?? 'Porquinho';
+    : id = (data['id'] ?? '').toString(),
+      name = (data['name'] ?? 'Sem nome').toString(),
+      type = (data['type'] ?? 'expense').toString(),
+      iconName = (data['iconName'] ?? data['icon'] ?? 'Porquinho').toString();
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -217,22 +218,30 @@ class Transaction {
   final Map<String, bool> paidByMonth;
 
   Transaction.fromMap(Map<String, dynamic> data)
-    : id = data['id'],
-      description = data['description'],
-      amount = data['amount'].toDouble(),
-      categoryId = data['categoryId'],
-      date = DateTime.parse(data['date']),
-      isPaid = data['isPaid'] ?? false,
-      isRecurring = data['isRecurring'] ?? false,
-      recurringStartMonth = data['recurringStartMonth'],
-      recurringEndMonth = data['recurringEndMonth'],
-      paidByMonth = data['paidByMonth'] != null
+    : id = (data['id'] ?? '').toString(),
+      description = (data['description'] ?? '').toString(),
+      amount = (data['amount'] as num? ?? 0).toDouble(),
+      categoryId = (data['categoryId'] ?? '').toString(),
+      date = _parseDate(data['date']),
+      isPaid = data['isPaid'] == true,
+      isRecurring = data['isRecurring'] == true,
+      recurringStartMonth = data['recurringStartMonth']?.toString(),
+      recurringEndMonth = data['recurringEndMonth']?.toString(),
+      paidByMonth = data['paidByMonth'] is Map
           ? Map<String, bool>.from(
               (data['paidByMonth'] as Map).map(
                 (k, v) => MapEntry(k.toString(), v == true),
               ),
             )
           : {};
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      try { return DateTime.parse(value); } catch (_) { return DateTime.now(); }
+    }
+    return DateTime.now();
+  }
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -565,6 +574,21 @@ class Invitation {
 }
 
 // --- Funções de Formatação ---
+
+/// Converte strings como "1.200,45" ou "1200,45" ou "1200.45" para double.
+/// Regra: se há vírgula, ela é o separador decimal e pontos são separadores de milhar.
+/// Se há só ponto, é o separador decimal (ex: "1200.45").
+double? parseAmountInput(String value) {
+  final v = value.trim();
+  if (v.isEmpty) return null;
+  if (v.contains(',')) {
+    // Formato BR: remove pontos (milhar) e troca vírgula por ponto
+    return double.tryParse(v.replaceAll('.', '').replaceAll(',', '.'));
+  }
+  // Sem vírgula: pode ter ponto decimal normal (1200.45) ou sem separador (1200)
+  return double.tryParse(v);
+}
+
 String formatCurrency(double value) {
   // Formata valores como R$ 1.000,00 (separador de milhar)
   String sign = value < 0 ? '-' : '';
@@ -889,7 +913,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
       final map = {
         'id': _isEditing ? widget.transactionToEdit!.id : 'temp',
         'description': _description,
-        'amount': double.parse(_amount.replaceAll(',', '.')),
+        'amount': parseAmountInput(_amount) ?? 0.0,
         'categoryId': _selectedCategoryId!,
         'date': _selectedDate.toIso8601String().substring(0, 10),
         'isPaid': false,
@@ -968,8 +992,8 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             onSaved: (value) => _amount = value!,
             validator: (value) {
               if (value!.isEmpty) return 'Campo obrigatório';
-              if (double.tryParse(value.replaceAll(',', '.')) == null) {
-                return 'Valor inválido. Use ponto ou vírgula.';
+              if (parseAmountInput(value) == null) {
+                return 'Valor inválido. Ex: 1.200,45 ou 1200,45';
               }
               return null;
             },
@@ -1658,7 +1682,10 @@ class TransactionCard extends StatelessWidget {
               : const Color.fromARGB(255, 255, 220, 160),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
               children: [
                 // Ícone da Categoria
                 Container(
@@ -1782,6 +1809,101 @@ class TransactionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ],
+            ),
+                // ── Linha de recorrência (parcelas) ─────────────────
+                if (transaction.isRecurring &&
+                    transaction.recurringStartMonth != null &&
+                    transaction.recurringEndMonth != null)
+                  Builder(
+                    builder: (_) {
+                      final start = DateTime.parse(
+                        '${transaction.recurringStartMonth}-01',
+                      );
+                      final end = DateTime.parse(
+                        '${transaction.recurringEndMonth}-01',
+                      );
+                      final current = DateTime(
+                        transaction.date.year,
+                        transaction.date.month,
+                      );
+                      final current_ =
+                          (current.year - start.year) * 12 +
+                          current.month -
+                          start.month +
+                          1;
+                      final total =
+                          (end.year - start.year) * 12 +
+                          end.month -
+                          start.month +
+                          1;
+                      final rowColor = transaction.isPaid
+                          ? color
+                          : const Color.fromARGB(255, 200, 100, 0);
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: rowColor.withAlpha(140),
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                size: 14,
+                                color: rowColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                transaction.isPaid
+                                    ? 'Pago em ${formatDate(transaction.date)}'
+                                    : 'Pagar em ${formatDate(transaction.date)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: rowColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: transaction.isPaid
+                                      ? color
+                                      : const Color.fromARGB(
+                                          255,
+                                          200,
+                                          100,
+                                          0,
+                                        ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '$current_/$total',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -1971,33 +2093,30 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Month Selector
-        Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        // Month Selector — pill shape, full width
+        Container(
+          decoration: BoxDecoration(
+            color: primaryColor.withAlpha(20),
+            borderRadius: BorderRadius.circular(50),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 8.0,
-              horizontal: 16.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(FontAwesomeIcons.chevronLeft),
-                  onPressed: () {
-                    setState(() {
-                      _selectedDate = DateTime(
-                        _selectedDate.year,
-                        _selectedDate.month - 1,
-                      );
-                      widget.onDateChanged?.call(_selectedDate);
-                    });
-                  },
-                ),
-                GestureDetector(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronLeft, size: 14),
+                color: primaryColor,
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month - 1,
+                    );
+                    widget.onDateChanged?.call(_selectedDate);
+                  });
+                },
+              ),
+              Expanded(
+                child: GestureDetector(
                   onTap: () async {
                     final DateTime? picked = await showDatePicker(
                       context: context,
@@ -2013,32 +2132,41 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       });
                     }
                   },
-                  child: Text(
-                    DateFormat(
-                      'MMMM yyyy',
-                      'pt_BR',
-                    ).format(_selectedDate).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        size: 17,
+                        color: primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        DateFormat('MMMM yyyy', 'pt_BR').format(_selectedDate),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(FontAwesomeIcons.chevronRight),
-                  onPressed: () {
-                    setState(() {
-                      _selectedDate = DateTime(
-                        _selectedDate.year,
-                        _selectedDate.month + 1,
-                      );
-                      widget.onDateChanged?.call(_selectedDate);
-                    });
-                  },
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronRight, size: 14),
+                color: primaryColor,
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month + 1,
+                    );
+                    widget.onDateChanged?.call(_selectedDate);
+                  });
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -2177,70 +2305,26 @@ class SummaryCard extends StatelessWidget {
               Theme.of(context).cardTheme.color ??
               Theme.of(context).colorScheme.surface,
         ),
-        child: Stack(
-          children: [
-            if (icon != null)
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Opacity(
-                  opacity: 0.1,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final screenWidth = MediaQuery.of(context).size.width;
-                      final iconSize = screenWidth < 600 ? 24.0 : 80.0;
-                      return Icon(icon, color: color, size: iconSize);
-                    },
-                  ),
-                ),
-              ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isMobile = constraints.maxWidth < 600;
-                if (isMobile) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8), // Space for icon
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                formatCurrency(value),
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  color: valueColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                } else {
-                  return Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 600;
+            final iconSize = isMobile ? 52.0 : 72.0;
+            final valueFontSize = isMobile ? 28.0 : 40.0;
+            final titleFontSize = isMobile ? 16.0 : 20.0;
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Texto (título + valor) à esquerda
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: titleFontSize,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2249,17 +2333,23 @@ class SummaryCard extends StatelessWidget {
                       Text(
                         formatCurrency(value),
                         style: TextStyle(
-                          fontSize: 40,
+                          fontSize: valueFontSize,
                           fontWeight: FontWeight.w900,
                           color: valueColor,
                         ),
                       ),
                     ],
-                  );
-                }
-              },
-            ),
-          ],
+                  ),
+                ),
+                // Ícone transparente à direita, alinhado ao fim do card
+                if (icon != null)
+                  Opacity(
+                    opacity: 0.12,
+                    child: FaIcon(icon!, color: color, size: iconSize),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -2283,6 +2373,7 @@ class ChartCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -2297,7 +2388,7 @@ class ChartCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 16),
             SizedBox(height: height, child: chartWidget),
           ],
         ),
@@ -2399,6 +2490,7 @@ class _AnnualPieChartState extends State<AnnualPieChart>
                     incomeColor: incomeColor,
                     expenseColor: expenseColor,
                     animationValue: _animation.value,
+                    textColor: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -2417,6 +2509,7 @@ class _ModernPieChartPainter extends CustomPainter {
   final Color incomeColor;
   final Color expenseColor;
   final double animationValue;
+  final Color textColor;
 
   _ModernPieChartPainter({
     required this.income,
@@ -2425,77 +2518,177 @@ class _ModernPieChartPainter extends CustomPainter {
     required this.incomeColor,
     required this.expenseColor,
     required this.animationValue,
+    required this.textColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) / 2 * 0.8;
+    final radius = min(size.width, size.height) / 2 * 0.75;
+    final strokeW = radius * 0.38;
+    final arcRect = Rect.fromCircle(center: center, radius: radius);
 
-    // Sombra do gráfico
-    final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha(25)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawCircle(center, radius + 10, shadowPaint);
-
-    // Fundo do gráfico (anel externo leve)
-    final backgroundPaint = Paint()
-      ..color = Colors.grey.withAlpha(25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = radius * 0.3;
-
-    canvas.drawCircle(center, radius, backgroundPaint);
-
-    // Gradiente para melhor aparência
-    final incomeSweep = (income / total) * 2 * pi;
-    final expenseSweep = (expense / total) * 2 * pi;
-
-    // Income Slice com animação
-    final incomePaint = Paint()
-      ..color = incomeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = radius * 0.3
-      ..strokeCap = StrokeCap.round;
-
-    final incomeRect = Rect.fromCircle(center: center, radius: radius);
-    canvas.drawArc(
-      incomeRect,
-      -pi / 2,
-      incomeSweep * animationValue,
-      false,
-      incomePaint,
+    // ── Anel de fundo (trilha) ──────────────────────────────────────
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = Colors.grey.withAlpha(40)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW,
     );
 
-    // Expense Slice com animação
-    final expensePaint = Paint()
-      ..color = expenseColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = radius * 0.3
-      ..strokeCap = StrokeCap.round;
+    final incomeSweep = income > 0 ? (income / total) * 2 * pi : 0.0;
+    final expenseSweep = expense > 0 ? (expense / total) * 2 * pi : 0.0;
+    final gap = incomeSweep > 0 && expenseSweep > 0 ? 0.03 : 0.0;
 
-    canvas.drawArc(
-      incomeRect,
-      -pi / 2 + (incomeSweep * animationValue),
-      expenseSweep * animationValue,
-      false,
-      expensePaint,
-    );
+    // ── Segmento de Entradas ────────────────────────────────────────
+    if (income > 0) {
+      canvas.drawArc(
+        arcRect,
+        -pi / 2 + gap / 2,
+        (incomeSweep - gap) * animationValue,
+        false,
+        Paint()
+          ..color = incomeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeW
+          ..strokeCap = StrokeCap.butt,
+      );
+    }
 
-    // Centro do gráfico (para criar visual em donut)
-    final centerCirclePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
+    // ── Segmento de Saídas ──────────────────────────────────────────
+    if (expense > 0) {
+      canvas.drawArc(
+        arcRect,
+        -pi / 2 + incomeSweep * animationValue + gap / 2,
+        (expenseSweep - gap) * animationValue,
+        false,
+        Paint()
+          ..color = expenseColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeW
+          ..strokeCap = StrokeCap.butt,
+      );
+    }
 
-    canvas.drawCircle(center, radius * 0.4, centerCirclePaint);
+    // ── Labels de porcentagem ────────────────────────────────────────
+    // Segmento grande (>= 60°): label DENTRO do arco, cor branca.
+    // Segmento pequeno (< 60°): label FORA do arco, na cor do segmento.
+    if (animationValue >= 1.0) {
+      void drawPctLabel(double sweep, double startAngle, Color color) {
+        if (sweep < 0.08) return;
+        final midAngle = startAngle + sweep / 2;
+        final pct = '${(sweep / (2 * pi) * 100).toStringAsFixed(1)}%';
+        final showInside = sweep >= pi / 3; // >= ~60°
+        final labelRadius = showInside ? radius : radius + strokeW * 0.80;
+        final labelColor = showInside ? Colors.white : color;
+
+        final x = center.dx + labelRadius * cos(midAngle);
+        final y = center.dy + labelRadius * sin(midAngle);
+
+        final tp = TextPainter(
+          text: TextSpan(
+            text: pct,
+            style: TextStyle(
+              color: labelColor,
+              fontSize: size.width * 0.062,
+              fontWeight: FontWeight.bold,
+              shadows: showInside
+                  ? [Shadow(color: Colors.black38, blurRadius: 4)]
+                  : null,
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
+      }
+
+      drawPctLabel(incomeSweep, -pi / 2 + gap / 2, incomeColor);
+      drawPctLabel(expenseSweep, -pi / 2 + incomeSweep + gap / 2, expenseColor);
+    }
+
+    // ── Texto central: "Total" + valor ─────────────────────────────
+    if (animationValue > 0.4) {
+      final fade = ((animationValue - 0.4) / 0.6).clamp(0.0, 1.0);
+
+      // Linha "Total"
+      final labelTp = TextPainter(
+        text: TextSpan(
+          text: 'Total',
+          style: TextStyle(
+            color: textColor.withAlpha((120 * fade).round()),
+            fontSize: size.width * 0.065,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      labelTp.paint(
+        canvas,
+        Offset(
+          center.dx - labelTp.width / 2,
+          center.dy - labelTp.height - size.width * 0.015,
+        ),
+      );
+
+      // Valor formatado
+      final valTp = TextPainter(
+        text: TextSpan(
+          text: formatCurrency(total),
+          style: TextStyle(
+            color: textColor.withAlpha((220 * fade).round()),
+            fontSize: size.width * 0.072,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      valTp.paint(
+        canvas,
+        Offset(
+          center.dx - valTp.width / 2,
+          center.dy + size.width * 0.015,
+        ),
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _ModernPieChartPainter oldDelegate) {
-    return oldDelegate.income != income ||
-        oldDelegate.expense != expense ||
-        oldDelegate.total != total ||
-        oldDelegate.animationValue != animationValue;
+  bool shouldRepaint(covariant _ModernPieChartPainter oldDelegate) =>
+      oldDelegate.income != income ||
+      oldDelegate.expense != expense ||
+      oldDelegate.total != total ||
+      oldDelegate.animationValue != animationValue ||
+      oldDelegate.textColor != textColor;
+}
+
+/// Gera um caminho com cantos côncavos (invertidos).
+/// O ponto de controle de cada bezier é o vértice do canto, o que puxa
+/// a curva para dentro e cria o efeito de encaixe.
+class _InvertedCornerClipper extends CustomClipper<Path> {
+  final double radius;
+  const _InvertedCornerClipper({this.radius = 24.0});
+
+  @override
+  Path getClip(Size size) {
+    final r = radius;
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
+      ..lineTo(w - r, 0)
+      ..quadraticBezierTo(w, 0, w, r)
+      ..lineTo(w, h - r)
+      ..quadraticBezierTo(w, h, w - r, h)
+      ..lineTo(r, h)
+      ..quadraticBezierTo(0, h, 0, h - r)
+      ..close();
   }
+
+  @override
+  bool shouldReclip(_InvertedCornerClipper old) => old.radius != radius;
 }
 
 // --- Componente de Resumo por Categoria ---
@@ -2517,6 +2710,7 @@ class CategorySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -2537,7 +2731,7 @@ class CategorySummaryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 16),
             if (data.isEmpty)
               Center(
                 child: Text(
@@ -2614,95 +2808,482 @@ class CategorySummaryCard extends StatelessWidget {
 
 class DashboardScreen extends StatelessWidget {
   final Map<String, double> summary;
-  final DateTime? selectedMonth;
+  final DateTime selectedMonth;
+  final void Function(DateTime) onMonthChanged;
+  final VoidCallback? onNavigateToExtract;
 
-  const DashboardScreen({super.key, required this.summary, this.selectedMonth});
+  const DashboardScreen({
+    super.key,
+    required this.summary,
+    required this.selectedMonth,
+    required this.onMonthChanged,
+    this.onNavigateToExtract,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final paidIncome = summary['paidIncome'] ?? 0;
+    final paidExpense = summary['paidExpense'] ?? 0;
+    final totalIncome = summary['totalIncome'] ?? 0;
+    final totalExpense = summary['totalExpense'] ?? 0;
+    final balance = summary['balance'] ?? 0;
+    final previsto = summary['previsto'] ?? 0;
+    final pendingIncome = summary['pendingIncome'] ?? 0;
+    final pendingExpense = summary['pendingExpense'] ?? 0;
+
+    final totalSettled = paidIncome + paidExpense;
+    final totalAll = totalIncome + totalExpense;
+    final progress =
+        totalAll > 0 ? (totalSettled / totalAll).clamp(0.0, 1.0) : 0.0;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1. Sumário Global (Cards) - Responsivo
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            return Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+        // ── Seletor de mês ──────────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            color: primaryColor.withAlpha(20),
+            borderRadius: BorderRadius.circular(50),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronLeft, size: 14),
+                color: primaryColor,
+                onPressed: () => onMonthChanged(
+                  DateTime(selectedMonth.year, selectedMonth.month - 1),
+                ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.chartLine,
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedMonth,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                      initialDatePickerMode: DatePickerMode.year,
+                    );
+                    if (picked != null) {
+                      onMonthChanged(DateTime(picked.year, picked.month));
+                    }
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        size: 17,
+                        color: primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        DateFormat('MMMM yyyy', 'pt_BR').format(selectedMonth),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
                           color: primaryColor,
-                          size: 32,
+                          fontSize: 15,
                         ),
-                        const SizedBox(width: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronRight, size: 14),
+                color: primaryColor,
+                onPressed: () => onMonthChanged(
+                  DateTime(selectedMonth.year, selectedMonth.month + 1),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Card Saldo Atual ─────────────────────────────────────────
+        Card(
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: primaryColor, width: 1),
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: primaryColor, width: 3)),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Título
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.wallet,
+                        color: primaryColor,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Saldo Atual',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Valor principal
+                Text(
+                  formatCurrency(balance.abs()),
+                  style: TextStyle(
+                    color: balance >= 0 ? primaryColor : expenseColor,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Recebido / Pago / Previsto
+                IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      _balanceStat(
+                        context,
+                        icon: FontAwesomeIcons.arrowTrendUp,
+                        label: 'Recebido',
+                        value: paidIncome,
+                        color: incomeColor,
+                      ),
+                      VerticalDivider(
+                        color: Theme.of(
+                          context,
+                        ).dividerColor.withAlpha(80),
+                        width: 24,
+                      ),
+                      _balanceStat(
+                        context,
+                        icon: FontAwesomeIcons.arrowTrendDown,
+                        label: 'Pago',
+                        value: paidExpense,
+                        color: expenseColor,
+                      ),
+                      VerticalDivider(
+                        color: Theme.of(
+                          context,
+                        ).dividerColor.withAlpha(80),
+                        width: 24,
+                      ),
+                      _balanceStat(
+                        context,
+                        icon: Icons.event_note_outlined,
+                        label: 'Previsto',
+                        value: previsto,
+                        color: primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(
+                  color: Theme.of(context).dividerColor.withAlpha(60),
+                  height: 24,
+                  thickness: 0.5,
+                ),
+                // Barra de progresso
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Progresso: ${(progress * 100).round()}% do mês',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: primaryColor.withAlpha(40),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                primaryColor,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (onNavigateToExtract != null)
+                      GestureDetector(
+                        onTap: onNavigateToExtract,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(
+                            Icons.chevron_right,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── ENTRADAS card ───────────────────────────────────────────
+        Card(
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: incomeColor, width: 1),
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: incomeColor, width: 3)),
+            ),
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: incomeColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.arrowTrendUp,
+                        color: incomeColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Visão Geral',
+                          'ENTRADAS',
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: Colors.grey[500],
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatCurrency(totalIncome),
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: incomeColor,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Acompanhe o saldo total, receitas e despesas do mês em tempo real.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    GridView.count(
-                      crossAxisCount: isMobile ? 1 : 3,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: isMobile ? 3.0 : 1.8,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        SummaryCard(
-                          title: 'Saldo Atual',
-                          value: summary['balance']!,
-                          color: primaryColor,
-                          isBalance: true,
-                          icon: Icons.attach_money,
-                        ),
-                        SummaryCard(
-                          title: 'Total de Entradas',
-                          value: summary['income']!,
-                          color: incomeColor,
-                          icon: Icons.trending_up,
-                        ),
-                        SummaryCard(
-                          title: 'Total de Saídas',
-                          value: summary['expense']!,
-                          color: expenseColor,
-                          icon: Icons.trending_down,
-                        ),
-                      ],
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onNavigateToExtract,
+                      child: Icon(Icons.chevron_right, color: Colors.grey[400]),
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 4),
+                Divider(height: 20, thickness: 0.5, color: Colors.grey[300]),
+                Row(
+                  children: [
+                    _summaryItem(
+                      label: 'Recebido',
+                      value: paidIncome,
+                      color: incomeColor,
+                    ),
+                    const Spacer(),
+                    _summaryItem(
+                      label: 'A Receber',
+                      value: pendingIncome,
+                      color: expenseColor,
+                      align: CrossAxisAlignment.end,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── SAÍDAS card ─────────────────────────────────────────────
+        Card(
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: expenseColor, width: 1),
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: expenseColor, width: 3)),
+            ),
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: expenseColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.arrowTrendDown,
+                        color: expenseColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SAÍDAS',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[500],
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatCurrency(totalExpense),
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: expenseColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onNavigateToExtract,
+                      child: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Divider(height: 20, thickness: 0.5, color: Colors.grey[300]),
+                Row(
+                  children: [
+                    _summaryItem(
+                      label: 'Pago',
+                      value: paidExpense,
+                      color: incomeColor,
+                    ),
+                    const Spacer(),
+                    _summaryItem(
+                      label: 'A Pagar',
+                      value: pendingExpense,
+                      color: expenseColor,
+                      align: CrossAxisAlignment.end,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
 
-        const SizedBox(height: 80), // Espaço para o FAB
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  Widget _balanceStat(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required double value,
+    Color color = primaryColor,
+  }) {
+    final text = formatCurrency(value).replaceAll('R\$', '').trim();
+    final subColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(color: subColor, fontSize: 11),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryItem({
+    required String label,
+    required double value,
+    required Color color,
+    CrossAxisAlignment align = CrossAxisAlignment.start,
+  }) {
+    return Column(
+      crossAxisAlignment: align,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          formatCurrency(value),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
       ],
     );
   }
@@ -2851,32 +3432,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Month Selector
-        Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        // Month Selector — pill shape, full width
+        Container(
+          decoration: BoxDecoration(
+            color: primaryColor.withAlpha(20),
+            borderRadius: BorderRadius.circular(50),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 8.0,
-              horizontal: 16.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(FontAwesomeIcons.chevronLeft),
-                  onPressed: () {
-                    setState(() {
-                      _selectedDate = DateTime(
-                        _selectedDate.year,
-                        _selectedDate.month - 1,
-                      );
-                    });
-                  },
-                ),
-                GestureDetector(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronLeft, size: 14),
+                color: primaryColor,
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month - 1,
+                    );
+                  });
+                },
+              ),
+              Expanded(
+                child: GestureDetector(
                   onTap: () async {
                     final DateTime? picked = await showDatePicker(
                       context: context,
@@ -2891,31 +3469,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       });
                     }
                   },
-                  child: Text(
-                    DateFormat(
-                      'MMMM yyyy',
-                      'pt_BR',
-                    ).format(_selectedDate).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        size: 17,
+                        color: primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        DateFormat('MMMM yyyy', 'pt_BR').format(_selectedDate),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(FontAwesomeIcons.chevronRight),
-                  onPressed: () {
-                    setState(() {
-                      _selectedDate = DateTime(
-                        _selectedDate.year,
-                        _selectedDate.month + 1,
-                      );
-                    });
-                  },
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                icon: const Icon(FontAwesomeIcons.chevronRight, size: 14),
+                color: primaryColor,
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month + 1,
+                    );
+                  });
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -2924,17 +3511,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
           _buildEmptyState(context)
         else
           Flexible(
-            child: SingleChildScrollView(
-              child: _buildCharts(
-                context,
-                pieData,
-                sortedIncomeCats,
-                sortedExpenseCats,
+            child: ClipPath(
+              clipper: const _InvertedCornerClipper(radius: 24),
+              child: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  child: _buildCharts(
+                    context,
+                    pieData,
+                    sortedIncomeCats,
+                    sortedExpenseCats,
+                  ),
+                ),
               ),
             ),
           ),
-
-        const SizedBox(height: 80), // Espaço para o FAB
       ],
     );
   }
@@ -2982,7 +3574,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           chartWidget: AnnualPieChart(data: pieData),
         ),
 
-        const SizedBox(height: 25),
+        const SizedBox(height: 16),
 
         // 3. Tabelas de Categorias (Entradas e Saídas)
         LayoutBuilder(
@@ -3042,6 +3634,262 @@ class _ReportsScreenState extends State<ReportsScreen> {
 // 4.1 WIDGET: TELA DE PERFIL
 // ===================================================================
 
+class _SyncTile extends StatelessWidget {
+  final Future<void> Function() onSync;
+  final Future<bool> Function() onCheckExisting;
+  const _SyncTile({required this.onSync, required this.onCheckExisting});
+
+  void _showSyncDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _SyncDialog(
+        onSync: onSync,
+        onCheckExisting: onCheckExisting,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.cloud_sync_outlined, color: primaryColor),
+      title: const Text('Sincronizar'),
+      subtitle: const Text('Salvar entradas e saídas na nuvem'),
+      trailing: const Icon(FontAwesomeIcons.chevronRight),
+      onTap: () => _showSyncDialog(context),
+    );
+  }
+}
+
+class _SyncDialog extends StatefulWidget {
+  final Future<void> Function() onSync;
+  final Future<bool> Function() onCheckExisting;
+  const _SyncDialog({required this.onSync, required this.onCheckExisting});
+
+  @override
+  State<_SyncDialog> createState() => _SyncDialogState();
+}
+
+// Estados internos do fluxo de sincronização
+enum _SyncStep { idle, checking, confirmReplace, syncing, done, error }
+
+class _SyncDialogState extends State<_SyncDialog> {
+  _SyncStep _step = _SyncStep.idle;
+  String? _error;
+
+  Future<void> _onSyncPressed() async {
+    setState(() => _step = _SyncStep.checking);
+    try {
+      final hasData = await widget.onCheckExisting();
+      if (!mounted) return;
+      if (hasData) {
+        setState(() => _step = _SyncStep.confirmReplace);
+      } else {
+        await _doSync();
+      }
+    } catch (e) {
+      if (mounted) setState(() { _step = _SyncStep.error; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _doSync() async {
+    setState(() => _step = _SyncStep.syncing);
+    try {
+      await widget.onSync();
+      if (mounted) setState(() => _step = _SyncStep.done);
+    } catch (e) {
+      if (mounted) setState(() { _step = _SyncStep.error; _error = e.toString(); });
+    }
+  }
+
+  bool get _busy =>
+      _step == _SyncStep.checking || _step == _SyncStep.syncing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400, minWidth: 300),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Cabeçalho ──────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Sincronizar',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+
+                // ── Ícone central ───────────────────────────────────
+                const SizedBox(height: 8),
+                Center(
+                  child: _busy
+                      ? const SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: primaryColor,
+                          ),
+                        )
+                      : Icon(
+                          _step == _SyncStep.done
+                              ? Icons.cloud_done_outlined
+                              : _step == _SyncStep.error
+                                  ? Icons.cloud_off_outlined
+                                  : _step == _SyncStep.confirmReplace
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.cloud_sync_outlined,
+                          size: 56,
+                          color: _step == _SyncStep.done
+                              ? incomeColor
+                              : _step == _SyncStep.error
+                                  ? expenseColor
+                                  : _step == _SyncStep.confirmReplace
+                                      ? Colors.orange
+                                      : primaryColor,
+                        ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Mensagem de status ──────────────────────────────
+                Center(
+                  child: Text(
+                    switch (_step) {
+                      _SyncStep.checking   => 'Verificando dados existentes...',
+                      _SyncStep.syncing    => 'Sincronizando entradas e saídas...',
+                      _SyncStep.done       => 'Dados sincronizados com sucesso!',
+                      _SyncStep.error      => 'Erro ao sincronizar. Tente novamente.',
+                      _SyncStep.confirmReplace => 'Já existem registros salvos na sua conta.\nDeseja substituir os dados existentes?',
+                      _SyncStep.idle       => 'Todos os dados de entradas e saídas serão salvos na sua conta do Firebase.',
+                    },
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _step == _SyncStep.done
+                          ? incomeColor
+                          : _step == _SyncStep.error
+                              ? expenseColor
+                              : _step == _SyncStep.confirmReplace
+                                  ? Colors.orange
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Botões ──────────────────────────────────────────
+                if (_step == _SyncStep.done)
+                  ElevatedButton.icon(
+                    icon: const Icon(FontAwesomeIcons.check),
+                    label: const Text('Concluído'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: incomeColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                else if (_step == _SyncStep.confirmReplace)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.xmark),
+                          label: const Text('Cancelar'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.arrowsRotate),
+                          label: const Text('Substituir'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _doSync,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.xmark),
+                          label: const Text('Cancelar'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.cloudArrowUp),
+                          label: const Text('Sincronizar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _busy ? null : _onSyncPressed,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final User user;
   final bool isAdmin;
@@ -3053,6 +3901,8 @@ class ProfileScreen extends StatefulWidget {
   final List<Category> categories;
   final Function(Category) onEditCategory;
   final Function(String) onDeleteCategory;
+  final Future<void> Function()? onSyncToFirebase;
+  final Future<bool> Function()? onCheckExistingData;
 
   const ProfileScreen({
     super.key,
@@ -3066,6 +3916,8 @@ class ProfileScreen extends StatefulWidget {
     required this.categories,
     required this.onEditCategory,
     required this.onDeleteCategory,
+    this.onSyncToFirebase,
+    this.onCheckExistingData,
   });
 
   @override
@@ -3432,7 +4284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () async {
                 if (salaryController.text.isNotEmpty) {
                   final newSalary =
-                      double.tryParse(salaryController.text) ?? 0.0;
+                      parseAmountInput(salaryController.text) ?? 0.0;
 
                   // Criar usuário atualizado com novo salário
                   final updatedUser = User(
@@ -3844,18 +4696,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(FontAwesomeIcons.userPlus),
-                      label: const Text('Convidar Colaborador'),
-                      onPressed: widget.onInviteCollaborator,
+                  ListTile(
+                    leading: const Icon(
+                      FontAwesomeIcons.userPlus,
+                      color: primaryColor,
                     ),
+                    title: const Text('Convidar Colaborador'),
+                    subtitle: const Text('Adicionar acesso compartilhado'),
+                    trailing: const Icon(FontAwesomeIcons.chevronRight),
+                    onTap: widget.onInviteCollaborator,
                   ),
                   const SizedBox(height: 16),
                   ListTile(
@@ -3982,6 +4831,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _showCustomCategoriesListDialog,
             ),
           ),
+
+          if (widget.onSyncToFirebase != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: _SyncTile(
+                onSync: widget.onSyncToFirebase!,
+                onCheckExisting: widget.onCheckExistingData ?? () async => false,
+              ),
+            ),
+          ],
 
           const SizedBox(height: 24),
           Padding(
@@ -4459,12 +5319,20 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   DateTime? _extractFocusDate; // Força navegação do extrato para este mês
 
   late final AuthService _authService;
+  final FirestoreService _firestoreService = FirestoreService();
   User? _currentUser;
+  // UID do dono dos dados: igual ao _currentUser.id para owners,
+  // ou uid do owner quando o usuário logado é um colaborador.
+  String? _dataOwnerUid;
   List<User> _collaborators = [];
   List<Invitation> _invitations = [];
 
   List<Transaction> _transactions = [];
   List<Category> _categories = [];
+
+  // Subscriptions de tempo real do Firestore
+  StreamSubscription<List<Map<String, dynamic>>>? _txSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _catSub;
 
   @override
   void initState() {
@@ -4491,6 +5359,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _txSub?.cancel();
+    _catSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -4507,7 +5377,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       if (supported) {
         _availableBiometrics = await auth.getAvailableBiometrics();
       }
-    } on PlatformException {
+    } catch (_) {
       _availableBiometrics = [];
     }
   }
@@ -4542,11 +5412,14 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     if (kIsWeb) return;
 
     if (state == AppLifecycleState.paused && !_isGuest) {
-      // Bloqueia ao ir para segundo plano — igual ao WhatsApp
       setState(() => _isLocked = true);
     }
-    // Não dispara biometria automaticamente ao voltar —
-    // o usuário precisa tocar no botão (comportamento WhatsApp)
+    // Dispara biometria automaticamente ao voltar para o app — igual aos apps de banco
+    if (state == AppLifecycleState.resumed && _isLocked) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _isLocked) _unlockApp();
+      });
+    }
   }
 
   Future<void> _unlockApp() async {
@@ -4576,17 +5449,98 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       if (authenticated && mounted) {
         setState(() => _isLocked = false);
       }
-    } on PlatformException {
+    } catch (_) {
       // Erro na plataforma (ex: biometria não configurada) — desbloqueia direto
       if (mounted) setState(() => _isLocked = false);
     }
+  }
+
+  Widget _buildWelcomeBackScreen() {
+    final user = _currentUser!;
+    final firstName = user.name.trim().split(' ').first;
+    final photoUrl = user.photoUrl;
+    final initials = user.name
+        .trim()
+        .split(' ')
+        .map((w) => w.isNotEmpty ? w[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Avatar
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: primaryColor.withAlpha(40),
+              border: Border.all(color: primaryColor, width: 2),
+              image: photoUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(photoUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: photoUrl == null
+                ? Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        color: primaryColor,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Bem-vindo de volta,',
+            style: TextStyle(
+              fontSize: 15,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            firstName,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          const SizedBox(height: 32),
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLockScreen() {
     final userName = _currentUser?.name ?? '';
     final photoUrl = _currentUser?.photoUrl;
     final initials = userName.isNotEmpty
-        ? userName.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase()
+        ? userName
+              .trim()
+              .split(' ')
+              .map((w) => w[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : '?';
 
     return Scaffold(
@@ -4676,7 +5630,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
             // ── Texto de dica ─────────────────────────────────────────────
             Text(
-              'Toque no ícone ou no botão para desbloquear',
+              'Verificação de identidade necessária',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.45),
                 fontSize: 13,
@@ -4739,28 +5693,43 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   // --- Cache de Dados ---
   Future<void> _loadCachedData() async {
     final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('currentUser');
-    if (userJson != null) {
-      final userMap = Map<String, dynamic>.from(jsonDecode(userJson));
-      _currentUser = User.fromMap(userMap);
+
+    try {
+      final userJson = prefs.getString('currentUser');
+      if (userJson != null) {
+        final userMap = Map<String, dynamic>.from(jsonDecode(userJson));
+        _currentUser = User.fromMap(userMap);
+      }
+    } catch (_) {
+      _currentUser = null;
     }
-    final transactionsJson = prefs.getString('transactions');
-    if (transactionsJson != null) {
-      final transactionsList = List<Map<String, dynamic>>.from(
-        jsonDecode(transactionsJson),
-      );
-      _transactions = transactionsList
-          .map((data) => Transaction.fromMap(data))
-          .toList();
+
+    try {
+      final transactionsJson = prefs.getString('transactions');
+      if (transactionsJson != null) {
+        final transactionsList = List<Map<String, dynamic>>.from(
+          jsonDecode(transactionsJson),
+        );
+        _transactions = transactionsList
+            .map((data) => Transaction.fromMap(data))
+            .toList();
+      }
+    } catch (_) {
+      _transactions = [];
     }
-    final categoriesJson = prefs.getString('categories');
-    if (categoriesJson != null) {
-      final categoriesList = List<Map<String, dynamic>>.from(
-        jsonDecode(categoriesJson),
-      );
-      _categories = categoriesList
-          .map((data) => Category.fromMap(data))
-          .toList();
+
+    try {
+      final categoriesJson = prefs.getString('categories');
+      if (categoriesJson != null) {
+        final categoriesList = List<Map<String, dynamic>>.from(
+          jsonDecode(categoriesJson),
+        );
+        _categories = categoriesList
+            .map((data) => Category.fromMap(data))
+            .toList();
+      }
+    } catch (_) {
+      _categories = [];
     }
   }
 
@@ -4787,21 +5756,12 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     await Future.delayed(const Duration(milliseconds: 1500));
 
     setState(() {
-      // Se não houver categorias carregadas do cache, use as categorias padrão
-      if (_categories.isEmpty) {
+      // Carrega categorias mock apenas em modo de desenvolvimento (debug/mock).
+      // Em produção, as categorias vêm do Firestore após o login.
+      if (_categories.isEmpty && useMockAuth) {
         _categories = mockCategoriesData
             .map((data) => Category.fromMap(data))
             .toList();
-      }
-      // Se ainda estiver vazio, tenta novamente
-      if (_categories.isEmpty) {
-        _categories = mockCategoriesData
-            .map((data) => Category.fromMap(data))
-            .toList();
-      }
-      // Só zera transações se não houver dados carregados do cache
-      if (_transactions.isEmpty) {
-        _transactions = []; // Zerar dados fictícios apenas se vazio
       }
       _isLoading = false;
     });
@@ -4816,6 +5776,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           _selectedIndex = 0;
         });
         _saveCachedData();
+        await _postLoginSetup(user);
         _showWelcomeDialog(user);
       }
     } catch (error) {
@@ -4840,6 +5801,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           _selectedIndex = 0;
         });
         _saveCachedData();
+        await _postLoginSetup(user);
         _showWelcomeDialog(user);
       }
     } catch (e) {
@@ -4874,6 +5836,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           _selectedIndex = 0;
         });
         _saveCachedData();
+        await _postLoginSetup(user);
         // Fecha a tela de cadastro e mostra boas-vindas
         if (Navigator.canPop(signUpContext)) {
           Navigator.of(signUpContext).pop();
@@ -4897,58 +5860,64 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       final canCheck = await auth.canCheckBiometrics;
       final isDeviceSupported = await auth.isDeviceSupported();
 
-      if (!canCheck && !isDeviceSupported) {
-        _showErrorSnackBar(
-          'Biometria ou bloqueio de tela não disponível neste dispositivo',
-        );
-        return;
-      }
+      if (!canCheck && !isDeviceSupported) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString('biometricUserEmail');
+      if (savedEmail == null || savedEmail.isEmpty) return;
 
       bool authenticated = false;
       try {
         authenticated = await auth.authenticate(
-          localizedReason:
-              'Use sua biometria ou senha do dispositivo para entrar',
+          localizedReason: 'Confirme sua identidade para acessar o app',
           options: const AuthenticationOptions(
             stickyAuth: true,
-            biometricOnly: false, // permite PIN/senha do dispositivo também
+            biometricOnly: false, // permite digital, face ou PIN do dispositivo
           ),
         );
-      } on PlatformException catch (e) {
-        _showErrorSnackBar('Erro de autenticação: ${e.message}');
-        return;
+      } catch (_) {
+        return; // dispositivo sem biometria configurada — silencia o erro
       }
 
-      if (authenticated) {
-        final prefs = await SharedPreferences.getInstance();
-        final savedEmail = prefs.getString('biometricUserEmail');
+      if (!authenticated) return;
 
-        if (savedEmail != null && savedEmail.isNotEmpty) {
-          final user = await _authService.signIn(email: savedEmail);
-          if (user != null) {
-            setState(() {
-              _currentUser = user;
-              _selectedIndex = 0;
-            });
-            _saveCachedData();
-            _showWelcomeDialog(user);
-          }
-        } else {
-          _showErrorSnackBar('Nenhum usuário cadastrado para biometria');
+      try {
+        final user = await _authService.signInWithBiometric(savedEmail);
+        if (user != null && mounted) {
+          setState(() {
+            _currentUser = user;
+            _selectedIndex = 0;
+          });
+          _saveCachedData();
+          await _postLoginSetup(user);
+          _showWelcomeDialog(user);
         }
+      } catch (_) {
+        // Sessão Firebase expirada — limpa o email salvo para não tentar de novo
+        // e deixa o usuário fazer login manualmente
+        await prefs.remove('biometricUserEmail');
       }
-    } catch (e) {
-      _showErrorSnackBar('Erro na autenticação biométrica: $e');
+    } catch (_) {
+      // Falha silenciosa: não interrompe o fluxo de login
     }
   }
 
   Future<void> _signOut() async {
     try {
+      // Cancela streams antes de sair
+      await _txSub?.cancel();
+      await _catSub?.cancel();
+      _txSub = null;
+      _catSub = null;
+
       await _authService.signOut();
       setState(() {
         _currentUser = null;
+        _dataOwnerUid = null;
         _collaborators = [];
         _invitations = [];
+        _transactions = [];
+        _categories = [];
       });
       _saveCachedData();
     } catch (error) {
@@ -4962,6 +5931,140 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('currentUser', jsonEncode(updatedUser.toMap()));
+  }
+
+  // --- Integração Firebase: carregar dados do Firestore em tempo real ---
+
+  /// Assina os streams do Firestore para o UID informado.
+  /// Qualquer alteração no servidor é refletida automaticamente na UI.
+  Future<void> _loadFirestoreData(String uid) async {
+    if (useMockAuth) return;
+
+    // Cancela subscriptions anteriores (ex: troca de conta / logout)
+    await _txSub?.cancel();
+    await _catSub?.cancel();
+
+    // ── Sincroniza transações locais → Firebase se Firebase estiver vazio ──
+    // Evita que o stream vazio do Firestore apague dados salvos no device.
+    // Usa try-catch para que uma falha no sync não bloqueie a inicialização dos streams.
+    try {
+      final hasFirebaseData = await _firestoreService.hasExistingTransactions(uid);
+      if (!hasFirebaseData && _transactions.isNotEmpty) {
+        await _syncToFirebase();
+      }
+    } catch (_) {
+      // Falha no auto-sync: ignora e continua para iniciar os streams normalmente.
+    }
+
+    // Garante categorias padrão para contas novas (operação única)
+    try {
+      await _firestoreService.seedDefaultCategories(uid);
+    } catch (_) {}
+
+    // ── Categorias ────────────────────────────────────────────────────
+    _catSub = _firestoreService.categoriesAppStream(uid).listen(
+      (rawList) {
+        if (!mounted) return;
+        try {
+          final cats = rawList
+              .map((m) => Category.fromMap(m))
+              .toList();
+          setState(() {
+            if (cats.isNotEmpty) _categories = cats;
+          });
+        } catch (_) {} // mantém dados do cache em caso de erro de parsing
+      },
+      onError: (_) {}, // mantém dados do cache em caso de erro de stream
+    );
+
+    // ── Transações ────────────────────────────────────────────────────
+    _txSub = _firestoreService.transactionsAppStream(uid).listen(
+      (rawList) {
+        if (!mounted) return;
+        try {
+          final txs = rawList
+              .map((m) => Transaction.fromMap(m))
+              .toList();
+          setState(() => _transactions = txs);
+          _saveCachedData(); // mantém cache local sempre atualizado
+        } catch (_) {} // mantém dados do cache em caso de erro de parsing
+      },
+      onError: (_) {}, // mantém dados do cache em caso de erro de stream
+    );
+  }
+
+  /// Executado após qualquer login/cadastro bem-sucedido.
+  /// Verifica se o usuário é colaborador de alguém e carrega os dados corretos.
+  Future<void> _postLoginSetup(User user) async {
+    if (useMockAuth) return;
+    try {
+      // 1. Verifica se este email foi convidado por algum owner
+      final ownerInfo = await _firestoreService.findOwnerByCollaboratorEmail(
+        user.email,
+      );
+
+      if (ownerInfo != null) {
+        // Usuário é colaborador — carrega dados do dono
+        final ownerUid = ownerInfo['ownerUid'] as String;
+        final role = ownerInfo['role'] as String;
+
+        setState(() {
+          _dataOwnerUid = ownerUid;
+          // Atualiza role do usuário para refletir permissões corretas
+          _currentUser = User(
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            photoUrl: user.photoUrl,
+            role: role,
+            salary: user.salary,
+          );
+        });
+        await _loadFirestoreData(ownerUid);
+
+        // Carrega lista de colaboradores do owner para a UI
+        final collabMaps = await _firestoreService.getCollaborators(ownerUid);
+        setState(() {
+          _collaborators = collabMaps
+              .map(
+                (m) => User(
+                  id: m['email'] as String,
+                  email: m['email'] as String,
+                  name: m['email'] as String,
+                  role: m['role'] as String,
+                ),
+              )
+              .toList();
+        });
+      } else {
+        // Usuário é owner — carrega os próprios dados
+        setState(() => _dataOwnerUid = null);
+        await _loadFirestoreData(user.id);
+
+        // Carrega lista de colaboradores do próprio owner
+        final collabMaps = await _firestoreService.getCollaborators(user.id);
+        setState(() {
+          _collaborators = collabMaps
+              .map(
+                (m) => User(
+                  id: m['email'] as String,
+                  email: m['email'] as String,
+                  name: m['email'] as String,
+                  role: m['role'] as String,
+                ),
+              )
+              .toList();
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[postLoginSetup] erro ao verificar colaboração: $e');
+      }
+      // Falha na verificação de colaboração — continua como owner normal
+      setState(() => _dataOwnerUid = null);
+      await _loadFirestoreData(user.id);
+    }
   }
 
   // --- Modal de Boas-Vindas ---
@@ -5084,11 +6187,16 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                 ),
               ),
               onPressed: () {
-                if (emailController.text.isEmpty) {
-                  _showErrorSnackBar('Digite um email válido');
+                final emailRegex = RegExp(
+                  r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
+                );
+                if (!emailRegex.hasMatch(emailController.text.trim())) {
+                  _showErrorSnackBar(
+                    'Email inválido. Use o formato: usuario@exemplo.com',
+                  );
                   return;
                 }
-                _sendInvitation(emailController.text, selectedRole);
+                _sendInvitation(emailController.text.trim(), selectedRole);
                 Navigator.of(context).pop();
               },
             ),
@@ -5099,7 +6207,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   }
 
   Future<void> _sendInvitation(String email, String role) async {
-    // 1. Criar o convite no estado local (simulando o BD)
+    // 1. Criar o convite no estado local
     final invitation = Invitation(
       id: 'inv_${DateTime.now().millisecondsSinceEpoch}',
       email: email,
@@ -5112,7 +6220,23 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       _invitations.add(invitation);
     });
 
-    // 2. Preparar e enviar o e-mail usando url_launcher
+    // 2. Persiste o colaborador no Firestore (owner sempre usa o próprio uid)
+    if (!useMockAuth && _currentUser != null) {
+      try {
+        final ownerUid = _dataOwnerUid ?? _currentUser!.id;
+        await _firestoreService.addCollaborator(ownerUid, email, role);
+        // Atualiza lista local de colaboradores
+        setState(() {
+          if (!_collaborators.any((c) => c.email == email)) {
+            _collaborators.add(
+              User(id: email, email: email, name: email, role: role),
+            );
+          }
+        });
+      } catch (_) {}
+    }
+
+    // 3. Preparar e enviar o e-mail usando url_launcher
     // Nota: mailto: só suporta texto simples — HTML aparece como código bruto.
     final subject = 'Convite para colaborar no Finanças App 💰';
 
@@ -5198,9 +6322,27 @@ Finanças App — Controle suas finanças com simplicidade.
                 ),
               ),
               onPressed: () {
+                final collab = _collaborators.firstWhere(
+                  (u) => u.id == userId,
+                  orElse: () => User(
+                    id: userId,
+                    email: userId,
+                    name: userId,
+                    role: 'collaborator',
+                  ),
+                );
                 setState(() {
                   _collaborators.removeWhere((u) => u.id == userId);
                 });
+                // Remove do Firestore
+                if (!useMockAuth && _currentUser != null) {
+                  final ownerUid = _dataOwnerUid ?? _currentUser!.id;
+                  _firestoreService.removeCollaborator(
+                    ownerUid,
+                    collab.email,
+                    collab.role,
+                  );
+                }
                 Navigator.of(context).pop();
                 _showSuccessSnackBar('Colaborador removido');
               },
@@ -5266,11 +6408,12 @@ Finanças App — Controle suas finanças com simplicidade.
       _showErrorSnackBar('Você não tem permissão para editar transações');
       return;
     }
+    final baseId = transaction.id.contains('@')
+        ? transaction.id.substring(0, transaction.id.indexOf('@'))
+        : transaction.id;
+    Map<String, dynamic>? updatedMap;
     setState(() {
       // IDs virtuais de recorrentes usam 'baseId@monthKey'; resolve o base
-      final baseId = transaction.id.contains('@')
-          ? transaction.id.substring(0, transaction.id.indexOf('@'))
-          : transaction.id;
       final index = _transactions.indexWhere((t) => t.id == baseId);
       if (index != -1) {
         final stored = _transactions[index];
@@ -5278,9 +6421,14 @@ Finanças App — Controle suas finanças com simplicidade.
         map['id'] = baseId; // restaura ID base
         map['paidByMonth'] = stored.paidByMonth; // preserva status por mês
         _transactions[index] = Transaction.fromMap(map);
+        updatedMap = map;
       }
     });
     _saveCachedData();
+    // Persiste atualização no Firestore
+    if (!useMockAuth && _activeUid != null && updatedMap != null) {
+      _firestoreService.saveTransactionRaw(_activeUid!, baseId, updatedMap!);
+    }
     // Fechar o modal (caso esteja aberto)
     if (Navigator.canPop(context)) Navigator.of(context).pop();
 
@@ -5349,6 +6497,15 @@ Finanças App — Controle suas finanças com simplicidade.
       }
     });
     _saveCachedData();
+    if (!useMockAuth && _activeUid != null) {
+      // Firestore usa 'icon', main.dart usa 'iconName' — mapeia corretamente
+      _firestoreService.saveCategoryRaw(_activeUid!, category.id, {
+        'name': category.name,
+        'type': category.type,
+        'icon': category.iconName,
+        'isDefault': false,
+      });
+    }
   }
 
   void _deleteCategory(String id) {
@@ -5356,30 +6513,61 @@ Finanças App — Controle suas finanças com simplicidade.
       _categories.removeWhere((c) => c.id == id);
     });
     _saveCachedData();
+    if (!useMockAuth && _activeUid != null) {
+      _firestoreService.deleteCategory(_activeUid!, id);
+    }
+  }
+
+  Future<bool> _checkExistingFirebaseData() async {
+    if (_activeUid == null || useMockAuth) return false;
+    return _firestoreService.hasExistingTransactions(_activeUid!);
+  }
+
+  Future<void> _syncToFirebase() async {
+    if (_activeUid == null || useMockAuth) return;
+    final uid = _activeUid!;
+    for (final tx in _transactions) {
+      await _firestoreService.saveTransactionRaw(uid, tx.id, tx.toMap());
+    }
+    for (final cat in _categories) {
+      await _firestoreService.saveCategoryRaw(uid, cat.id, cat.toMap());
+    }
   }
 
   void _togglePaidStatus(String transactionId, bool isPaid) {
+    final baseId = transactionId.contains('@')
+        ? transactionId.substring(0, transactionId.indexOf('@'))
+        : transactionId;
+    Transaction? updated;
     setState(() {
       // IDs de recorrentes virtuais usam formato 'baseId@yyyy-MM'
       if (transactionId.contains('@')) {
         final sep = transactionId.indexOf('@');
-        final baseId = transactionId.substring(0, sep);
         final monthKey = transactionId.substring(sep + 1);
         final index = _transactions.indexWhere((t) => t.id == baseId);
         if (index != -1) {
           final t = _transactions[index];
-          final updated = Map<String, bool>.from(t.paidByMonth);
-          updated[monthKey] = isPaid;
-          _transactions[index] = t.copyWith(paidByMonth: updated);
+          final paidMap = Map<String, bool>.from(t.paidByMonth);
+          paidMap[monthKey] = isPaid;
+          updated = t.copyWith(paidByMonth: paidMap);
+          _transactions[index] = updated!;
         }
       } else {
-        final index = _transactions.indexWhere((t) => t.id == transactionId);
+        final index = _transactions.indexWhere((t) => t.id == baseId);
         if (index != -1) {
-          _transactions[index] = _transactions[index].copyWith(isPaid: isPaid);
+          updated = _transactions[index].copyWith(isPaid: isPaid);
+          _transactions[index] = updated!;
         }
       }
     });
     _saveCachedData();
+    if (!useMockAuth && _activeUid != null && updated != null) {
+      _firestoreService.saveTransactionRaw(
+        _activeUid!,
+        baseId,
+        updated!.toMap(),
+      );
+    }
   }
 
   // --- Funções Auxiliares ---
@@ -5411,6 +6599,9 @@ Finanças App — Controle suas finanças com simplicidade.
   bool get _isAdmin => _userRole == 'owner';
   bool get _isCollaborator => _userRole == 'collaborator';
   bool get _isGuest => _currentUser == null;
+
+  /// UID a usar nas operações Firestore: owner do dados (pode ser outro user).
+  String? get _activeUid => _dataOwnerUid ?? _currentUser?.id;
 
   // --- Método para atualizar o mês selecionado no Dashboard ---
   void _updateDashboardMonth(DateTime month) {
@@ -5444,34 +6635,38 @@ Finanças App — Controle suas finanças com simplicidade.
       return;
     }
     final baseTs = DateTime.now().millisecondsSinceEpoch;
+    final newId = transaction.isRecurring ? 'r$baseTs' : 't$baseTs';
+    final txMap = {
+      'id': newId,
+      'description': transaction.description,
+      'amount': transaction.amount,
+      'categoryId': transaction.categoryId,
+      'date': transaction.date.toIso8601String().substring(0, 10),
+      'isPaid': false,
+      'isRecurring': transaction.isRecurring,
+      'recurringStartMonth': transaction.recurringStartMonth,
+      'recurringEndMonth': transaction.recurringEndMonth,
+      'paidByMonth': <String, bool>{},
+    };
     // Armazena UMA transação base; a expansão por mês é feita na exibição
     setState(() {
-      _transactions.add(
-        Transaction.fromMap({
-          'id': transaction.isRecurring ? 'r$baseTs' : 't$baseTs',
-          'description': transaction.description,
-          'amount': transaction.amount,
-          'categoryId': transaction.categoryId,
-          'date': transaction.date.toIso8601String().substring(0, 10),
-          'isPaid': false,
-          'isRecurring': transaction.isRecurring,
-          'recurringStartMonth': transaction.recurringStartMonth,
-          'recurringEndMonth': transaction.recurringEndMonth,
-        }),
-      );
-    });
-
-    _saveCachedData();
-    Navigator.of(context).pop();
-    setState(() {
+      _transactions.add(Transaction.fromMap(txMap));
       _selectedIndex = 1;
-      // Navega o extrato para o mês inicial da recorrência
       if (transaction.isRecurring && transaction.recurringStartMonth != null) {
         _extractFocusDate = DateTime.parse(
           '${transaction.recurringStartMonth}-01',
         );
       }
     });
+
+    _saveCachedData();
+
+    // Persiste no Firestore (fire-and-forget)
+    if (!useMockAuth && _activeUid != null) {
+      _firestoreService.saveTransactionRaw(_activeUid!, newId, txMap);
+    }
+
+    Navigator.of(context).pop();
   }
 
   void _deleteTransaction(String id) {
@@ -5559,14 +6754,21 @@ Finanças App — Controle suas finanças com simplicidade.
                       icon: const Icon(FontAwesomeIcons.trash),
                       label: const Text('Excluir'),
                       onPressed: () {
+                        // IDs virtuais de recorrentes usam 'baseId@monthKey'
+                        final baseId = id.contains('@')
+                            ? id.substring(0, id.indexOf('@'))
+                            : id;
                         setState(() {
-                          // IDs virtuais de recorrentes usam 'baseId@monthKey'
-                          final baseId = id.contains('@')
-                              ? id.substring(0, id.indexOf('@'))
-                              : id;
                           _transactions.removeWhere((t) => t.id == baseId);
                         });
                         _saveCachedData();
+                        // Persiste exclusão no Firestore
+                        if (!useMockAuth && _activeUid != null) {
+                          _firestoreService.deleteTransaction(
+                            _activeUid!,
+                            baseId,
+                          );
+                        }
                         Navigator.of(context).pop();
                         // Modal de sucesso igual ao de atualização
                         showDialog(
@@ -5681,6 +6883,8 @@ Finanças App — Controle suas finanças com simplicidade.
   // --- Lógica de Derivação de Dados (Para Dashboard) ---
   // Calcula o sumário filtrado para um mês específico
   Map<String, double> _calculateSummaryForMonth(DateTime month) {
+    double paidIncome = 0;
+    double paidExpense = 0;
     double totalIncome = 0;
     double totalExpense = 0;
 
@@ -5697,24 +6901,34 @@ Finanças App — Controle suas finanças com simplicidade.
         matchesMonth = t.date.year == month.year && t.date.month == month.month;
       }
       if (!matchesMonth) continue;
-      // Considerar apenas transações pagas/recebidas no dashboard
+
       final monthKey =
           '${month.year}-${month.month.toString().padLeft(2, '0')}';
       final isPaidForMonth = t.isRecurring
           ? (t.paidByMonth[monthKey] ?? false)
           : t.isPaid;
-      if (!isPaidForMonth) continue;
+
       final category = _getCategoryById(t.categoryId);
       if (category.type == 'income') {
         totalIncome += t.amount;
+        if (isPaidForMonth) paidIncome += t.amount;
       } else {
         totalExpense += t.amount;
+        if (isPaidForMonth) paidExpense += t.amount;
       }
     }
     return {
-      'income': totalIncome,
-      'expense': totalExpense,
-      'balance': totalIncome - totalExpense,
+      'paidIncome': paidIncome,
+      'paidExpense': paidExpense,
+      'totalIncome': totalIncome,
+      'totalExpense': totalExpense,
+      'balance': paidIncome - paidExpense,
+      'previsto': totalIncome - totalExpense,
+      'pendingIncome': totalIncome - paidIncome,
+      'pendingExpense': totalExpense - paidExpense,
+      // Chaves legadas para compatibilidade
+      'income': paidIncome,
+      'expense': paidExpense,
     };
   }
 
@@ -6634,19 +7848,11 @@ Finanças App — Controle suas finanças com simplicidade.
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: primaryColor),
-                  SizedBox(height: 15),
-                  Text(
-                    'Carregando...',
-                    style: TextStyle(color: primaryColor, fontSize: 16),
-                  ),
-                ],
-              ),
-            )
+          ? _currentUser != null
+              ? _buildWelcomeBackScreen()
+              : const Center(
+                  child: CircularProgressIndicator(color: primaryColor),
+                )
           : _isGuest
           ? _buildGuestScreen()
           : IndexedStack(
@@ -6654,31 +7860,30 @@ Finanças App — Controle suas finanças com simplicidade.
               children: [
                 // Aba 0: Dashboard
                 SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: DashboardScreen(
-                      summary: _calculateSummaryForMonth(
-                        _dashboardSelectedMonth,
-                      ),
-                      selectedMonth: _dashboardSelectedMonth,
+                  padding: const EdgeInsets.all(16.0),
+                  child: DashboardScreen(
+                    summary: _calculateSummaryForMonth(
+                      _dashboardSelectedMonth,
                     ),
+                    selectedMonth: _dashboardSelectedMonth,
+                    onMonthChanged: _updateDashboardMonth,
+                    onNavigateToExtract: () =>
+                        setState(() => _selectedIndex = 1),
                   ),
                 ),
                 // Aba 1: Extrato
-                Padding(
+                SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
-                  child: SingleChildScrollView(
-                    child: TransactionsScreen(
-                      transactions: _transactions,
-                      filterType: 'all',
-                      getCategoryById: _getCategoryById,
-                      deleteTransaction: _deleteTransaction,
-                      editTransaction: _showNewTransactionModal,
-                      canEdit: _isAdmin || _isCollaborator,
-                      onDateChanged: _updateDashboardMonth,
-                      onPaidStatusChanged: _togglePaidStatus,
-                      focusDate: _extractFocusDate,
-                    ),
+                  child: TransactionsScreen(
+                    transactions: _transactions,
+                    filterType: 'all',
+                    getCategoryById: _getCategoryById,
+                    deleteTransaction: _deleteTransaction,
+                    editTransaction: _showNewTransactionModal,
+                    canEdit: _isAdmin || _isCollaborator,
+                    onDateChanged: _updateDashboardMonth,
+                    onPaidStatusChanged: _togglePaidStatus,
+                    focusDate: _extractFocusDate,
                   ),
                 ),
                 // Aba 2: Relatórios
@@ -6701,6 +7906,8 @@ Finanças App — Controle suas finanças com simplicidade.
                   categories: _categories,
                   onEditCategory: _editCategory,
                   onDeleteCategory: _deleteCategory,
+                  onSyncToFirebase: _syncToFirebase,
+                  onCheckExistingData: _checkExistingFirebaseData,
                 ),
               ],
             ),

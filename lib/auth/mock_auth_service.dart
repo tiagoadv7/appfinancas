@@ -159,6 +159,12 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<User?> signInWithBiometric(String email) async {
+    // Reutiliza o atalho de login sem senha
+    return signIn(email: email, password: null);
+  }
+
+  @override
   Future<User?> signInWithGoogle() async {
     await Future.delayed(const Duration(milliseconds: 400));
     // Simula login Google em modo de teste (debug)

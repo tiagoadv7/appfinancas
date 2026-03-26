@@ -102,7 +102,10 @@ class Category {
 ///         name, icon, color, type, isDefault, createdAt
 /// ```
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Getter lazy: acessa FirebaseFirestore.instance somente no primeiro uso,
+  // não durante a construção da classe. Evita FirebaseException([core/no-app])
+  // quando o app roda em modo mock (debug) e Firebase não foi inicializado.
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   // ─── Referências ──────────────────────────────────────────────────────────
 
@@ -122,10 +125,61 @@ class FirestoreService {
         .map((s) => s.docs.map(Transaction.fromDoc).toList());
   }
 
+  /// Stream em tempo real no formato raw compatível com Transaction.fromMap do app.
+  /// Normaliza os campos Timestamp → String e garante que todos os campos
+  /// extras (isPaid, isRecurring, paidByMonth, etc.) sejam incluídos.
+  Stream<List<Map<String, dynamic>>> transactionsAppStream(String uid) {
+    return _txCol(uid)
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((doc) {
+              final data = Map<String, dynamic>.from(doc.data());
+              data['id'] = doc.id;
+              // Normaliza date: pode ser Timestamp (legado) ou String
+              if (data['date'] is Timestamp) {
+                data['date'] = (data['date'] as Timestamp)
+                    .toDate()
+                    .toIso8601String()
+                    .substring(0, 10);
+              }
+              // Normaliza paidByMonth
+              if (data['paidByMonth'] is Map) {
+                data['paidByMonth'] = Map<String, bool>.from(
+                  (data['paidByMonth'] as Map).map(
+                    (k, v) => MapEntry(k.toString(), v == true),
+                  ),
+                );
+              } else {
+                data['paidByMonth'] = <String, bool>{};
+              }
+              return data;
+            }).toList());
+  }
+
+  /// Stream em tempo real de categorias no formato raw compatível com Category.fromMap do app.
+  Stream<List<Map<String, dynamic>>> categoriesAppStream(String uid) {
+    return _catCol(uid)
+        .orderBy('name')
+        .snapshots()
+        .map((s) => s.docs.map((doc) {
+              final data = Map<String, dynamic>.from(doc.data());
+              data['id'] = doc.id;
+              // Garante que iconName seja preenchido (Firestore usa 'icon')
+              data['iconName'] = data['iconName'] ?? data['icon'] ?? 'Porquinho';
+              return data;
+            }).toList());
+  }
+
   /// Busca todas as transações uma única vez.
   Future<List<Transaction>> fetchTransactions(String uid) async {
     final snap = await _txCol(uid).orderBy('date', descending: true).get();
     return snap.docs.map(Transaction.fromDoc).toList();
+  }
+
+  /// Verifica se o usuário já possui transações salvas no Firestore.
+  Future<bool> hasExistingTransactions(String uid) async {
+    final snap = await _txCol(uid).limit(1).get();
+    return snap.docs.isNotEmpty;
   }
 
   /// Adiciona uma nova transação.
@@ -144,6 +198,16 @@ class FirestoreService {
   /// Remove uma transação.
   Future<void> deleteTransaction(String uid, String txId) async {
     await _txCol(uid).doc(txId).delete();
+  }
+
+  /// Salva (cria ou atualiza) uma transação com ID fixo.
+  /// Usa merge para preservar campos como `createdAt` em atualizações.
+  Future<void> saveTransactionRaw(
+    String uid,
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await _txCol(uid).doc(id).set(data, SetOptions(merge: true));
   }
 
   // ─── Categorias ───────────────────────────────────────────────────────────
@@ -179,6 +243,15 @@ class FirestoreService {
   /// esta categoria terão categoryId inválido.
   Future<void> deleteCategory(String uid, String catId) async {
     await _catCol(uid).doc(catId).delete();
+  }
+
+  /// Salva (cria ou atualiza) uma categoria com ID fixo.
+  Future<void> saveCategoryRaw(
+    String uid,
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await _catCol(uid).doc(id).set(data, SetOptions(merge: true));
   }
 
   // ─── Seed de categorias padrão ────────────────────────────────────────────
@@ -243,5 +316,81 @@ class FirestoreService {
         .doc(uid)
         .snapshots()
         .map((s) => s.data());
+  }
+
+  // ─── Colaboradores ────────────────────────────────────────────────────────
+
+  /// Adiciona um colaborador ao usuário dono (owner).
+  /// Salva o email em `collaboratorEmails` (para query rápida) e em
+  /// `collaborators` (para exibir nome/role na UI).
+  Future<void> addCollaborator(
+    String ownerUid,
+    String email,
+    String role,
+  ) async {
+    final ref = _db.collection('users').doc(ownerUid);
+    await ref.update({
+      'collaboratorEmails': FieldValue.arrayUnion([email]),
+      'collaborators': FieldValue.arrayUnion([
+        {'email': email, 'role': role},
+      ]),
+    });
+  }
+
+  /// Remove um colaborador do usuário dono.
+  Future<void> removeCollaborator(
+    String ownerUid,
+    String email,
+    String role,
+  ) async {
+    final ref = _db.collection('users').doc(ownerUid);
+    await ref.update({
+      'collaboratorEmails': FieldValue.arrayRemove([email]),
+      'collaborators': FieldValue.arrayRemove([
+        {'email': email, 'role': role},
+      ]),
+    });
+  }
+
+  /// Busca o UID e role do dono cujo `collaboratorEmails` contém [email].
+  /// Retorna null se o usuário não for colaborador de ninguém.
+  Future<Map<String, dynamic>?> findOwnerByCollaboratorEmail(
+    String email,
+  ) async {
+    final snap = await _db
+        .collection('users')
+        .where('collaboratorEmails', arrayContains: email)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) return null;
+
+    final doc = snap.docs.first;
+    final data = doc.data();
+
+    // Determina a role do colaborador dentro da lista
+    final collaborators =
+        (data['collaborators'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
+    final entry = collaborators.firstWhere(
+      (c) => c['email'] == email,
+      orElse: () => {'email': email, 'role': 'viewer'},
+    );
+
+    return {
+      'ownerUid': doc.id,
+      'ownerName': data['name'] ?? 'Proprietário',
+      'role': entry['role'] ?? 'viewer',
+      'collaborators': collaborators,
+    };
+  }
+
+  /// Retorna lista de colaboradores de um dono (como Map com email e role).
+  Future<List<Map<String, dynamic>>> getCollaborators(String ownerUid) async {
+    final snap = await _db.collection('users').doc(ownerUid).get();
+    final data = snap.data();
+    if (data == null) return [];
+    return (data['collaborators'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
   }
 }

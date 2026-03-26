@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart';
+import 'auth_config.dart';
 import 'auth_service.dart';
 
 /// Transforma a senha em SHA-256 antes de enviá-la ao Firebase Auth.
@@ -22,12 +24,8 @@ String _hashPassword(String password) {
 /// • Dados do perfil do usuário são armazenados em Firestore:
 ///     users/{uid}  →  name, email, photoUrl, role, salary, createdAt
 class FirebaseAuthService implements AuthService {
-  final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
-
+  fb.FirebaseAuth get _auth => fb.FirebaseAuth.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
   User? _user;
 
   @override
@@ -99,6 +97,8 @@ class FirebaseAuthService implements AuthService {
       return _user;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
+    } catch (e) {
+      throw Exception('Erro ao fazer login. Verifique sua conexão.');
     }
   }
 
@@ -130,6 +130,8 @@ class FirebaseAuthService implements AuthService {
       return _user;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
+    } catch (e) {
+      throw Exception('Erro ao criar conta. Verifique sua conexão.');
     }
   }
 
@@ -145,43 +147,79 @@ class FirebaseAuthService implements AuthService {
       return true;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
+    } catch (e) {
+      throw Exception('Erro ao enviar e-mail de redefinição. Verifique sua conexão.');
     }
   }
 
-  /// Login com Google (OAuth 2.0 + Firebase credential).
+  /// Restaura a sessão Firebase existente após autenticação biométrica.
+  /// Não requer senha — usa o token já em memória do FirebaseAuth.
+  @override
+  Future<User?> signInWithBiometric(String email) async {
+    final currentFbUser = _auth.currentUser;
+    if (currentFbUser != null && currentFbUser.email == email) {
+      _user = await _buildUser(currentFbUser);
+      return _user;
+    }
+    // Sessão expirada — usuário precisa fazer login manual
+    throw Exception('Sessão expirada. Faça login novamente.');
+  }
+
+  /// Login com Google.
+  /// • Web  → signInWithPopup (Firebase)
+  /// • Mobile → google_sign_in (seletor nativo de contas) + credencial Firebase
+  @override
   Future<User?> signInWithGoogle() async {
     try {
-      final googleAccount = await _googleSignIn.signIn();
-      if (googleAccount == null) return null; // usuário cancelou
+      fb.UserCredential cred;
 
-      final googleAuth = await googleAccount.authentication;
-      final credential = fb.GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      if (kIsWeb) {
+        final googleProvider = fb.GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+        cred = await _auth.signInWithPopup(googleProvider);
+      } else {
+        // Fluxo nativo: exibe o seletor de contas do dispositivo
+        // Não passar clientId no mobile — vem do google-services.json / GoogleService-Info.plist
+        final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+        final account = await googleSignIn.signIn();
+        if (account == null) return null; // usuário cancelou
 
-      final cred = await _auth.signInWithCredential(credential);
+        final googleAuth = await account.authentication;
+        final credential = fb.GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        cred = await _auth.signInWithCredential(credential);
+      }
+
+      if (cred.user == null) return null;
 
       await _upsertUserDoc(
         uid: cred.user!.uid,
-        name: cred.user!.displayName ?? googleAccount.displayName ?? 'Usuário',
-        email: cred.user!.email ?? googleAccount.email,
-        photoUrl: cred.user!.photoURL ?? googleAccount.photoUrl,
+        name: cred.user!.displayName ?? 'Usuário',
+        email: cred.user!.email ?? '',
+        photoUrl: cred.user!.photoURL,
       );
 
       _user = await _buildUser(cred.user!);
       return _user;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
+    } catch (e) {
+      // Captura erros genéricos do web (ex: popup bloqueado, domínio não autorizado)
+      // e exceções de JS interop que escapam do handler FirebaseAuthException
+      if (e.toString().contains('popup-closed') ||
+          e.toString().contains('popup_closed')) {
+        return null; // usuário fechou o popup — comportamento normal
+      }
+      throw Exception('Erro ao entrar com Google. Verifique sua conexão e tente novamente.');
     }
   }
 
   @override
   Future<void> signOut() async {
-    await Future.wait([
-      _auth.signOut(),
-      _googleSignIn.signOut(),
-    ]);
+    await _auth.signOut();
     _user = null;
   }
 
