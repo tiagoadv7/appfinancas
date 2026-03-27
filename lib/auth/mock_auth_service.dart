@@ -139,23 +139,32 @@ class MockAuthService implements AuthService {
   }
 
   @override
-  Future<bool> resetPassword({
-    required String email,
+  Future<bool> resetPassword({required String email}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final users = await _loadUsers();
+    await _ensureDevUser(users);
+    return users.containsKey(email.toLowerCase());
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
     required String newPassword,
   }) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    if (_user == null) throw Exception('Usuário não autenticado.');
 
     final users = await _loadUsers();
-    await _ensureDevUser(users);
-    final key = email.toLowerCase();
+    final key = _user!.email.toLowerCase();
+    final data = Map<String, dynamic>.from(users[key] ?? {});
 
-    if (!users.containsKey(key)) return false;
+    if (data['password'] != currentPassword) {
+      throw Exception('Senha atual incorreta.');
+    }
 
-    final data = Map<String, dynamic>.from(users[key]);
     data['password'] = newPassword;
     users[key] = data;
     await _saveUsers(users);
-    return true;
   }
 
   @override

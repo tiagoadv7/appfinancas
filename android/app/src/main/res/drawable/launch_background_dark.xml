@@ -5,9 +5,7 @@
     <item android:drawable="@color/dark_background" />
 
     <!-- Logo (ícone) centralizado -->
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/ic_splash_logo" />
-    </item>
+    <item
+        android:drawable="@mipmap/ic_splash_logo"
+        android:gravity="center" />
 </layer-list>

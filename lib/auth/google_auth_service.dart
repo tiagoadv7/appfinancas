@@ -54,11 +54,16 @@ class GoogleAuthService implements AuthService {
   }
 
   @override
-  Future<bool> resetPassword({
-    required String email,
+  Future<bool> resetPassword({required String email}) async {
+    throw UnimplementedError('Use MockAuthService para redefinição de senha');
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
     required String newPassword,
   }) async {
-    throw UnimplementedError('Use MockAuthService para redefinição de senha');
+    throw UnimplementedError('Use FirebaseAuthService para troca de senha');
   }
 
   @override

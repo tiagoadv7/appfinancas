@@ -17,10 +17,14 @@ abstract class AuthService {
     required String password,
   });
 
-  /// Redefine a senha do usuário com o email informado.
-  /// Retorna true se encontrou o usuário e atualizou a senha.
-  Future<bool> resetPassword({
-    required String email,
+  /// Envia e-mail de redefinição de senha (fluxo "Esqueci a senha").
+  /// O usuário clica no link recebido por e-mail para redefinir a senha.
+  Future<bool> resetPassword({required String email});
+
+  /// Troca a senha do usuário autenticado.
+  /// Reautentica com [currentPassword] antes de aplicar [newPassword].
+  Future<void> changePassword({
+    required String currentPassword,
     required String newPassword,
   });
 

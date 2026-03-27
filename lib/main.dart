@@ -32,8 +32,9 @@ const Color incomeColor = Color(0xFF10B981); // Emerald-500
 const Color expenseColor = Color(0xFFF43F5E); // Rose-500
 const Color successColor = Color(0xFF10B981);
 
-// Mock de Ícones (usando FontAwesome Icons)
-Map<String, IconData> iconMap = {
+// Mapa de ícones como const — garante que todos os glyphs FontAwesome
+// sejam incluídos no build release (evita tree-shaking incorreto).
+const Map<String, IconData> iconMap = {
   'Painel': FontAwesomeIcons.chartLine,
   'SetaCima': FontAwesomeIcons.arrowUp,
   'SetaBaixo': FontAwesomeIcons.arrowDown,
@@ -963,6 +964,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ── Cabeçalho fixo ──────────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -981,6 +983,13 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             ],
           ),
           const Divider(height: 20),
+
+          // ── Campos com scroll ────────────────────────────────────────────
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
           TextFormField(
             decoration: const InputDecoration(
               labelText: 'Descrição',
@@ -1477,7 +1486,15 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
               ],
             ),
           ),
-          const SizedBox(height: 25),
+                  const SizedBox(height: 25),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Rodapé fixo ──────────────────────────────────────────────────
+          const Divider(height: 1),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -5542,8 +5559,11 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   bool _loginObscure = true;
   bool _signupObscure = true;
   bool _signupConfirmObscure = true;
-  bool _forgotObscure = true;
-  bool _forgotConfirmObscure = true;
+
+
+  // Controllers da tela de login — declarados aqui para sobreviver ao setState
+  final TextEditingController _loginEmailController = TextEditingController();
+  final TextEditingController _loginPasswordController = TextEditingController();
   int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
   DateTime _dashboardSelectedMonth =
       DateTime.now(); // Mês selecionado no Dashboard
@@ -5593,6 +5613,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   void dispose() {
     _txSub?.cancel();
     _catSub?.cancel();
+    _loginEmailController.dispose();
+    _loginPasswordController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -7163,8 +7185,8 @@ Finanças App — Controle suas finanças com simplicidade.
 
   // --- Tela de Acesso Negado (Guest) ---
   Widget _buildGuestScreen() {
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
+    final emailController = _loginEmailController;
+    final passwordController = _loginPasswordController;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -7768,8 +7790,6 @@ Finanças App — Controle suas finanças com simplicidade.
   // --- Tela de Redefinição de Senha ---
   Widget _buildForgotPasswordScreen() {
     final emailController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -7800,7 +7820,7 @@ Finanças App — Controle suas finanças com simplicidade.
               const SizedBox(height: 12),
 
               Text(
-                'Informe seu e-mail cadastrado e a nova senha.',
+                'Informe seu e-mail cadastrado. Enviaremos um link para redefinir sua senha.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -7827,73 +7847,12 @@ Finanças App — Controle suas finanças com simplicidade.
                 ),
               ),
 
-              const SizedBox(height: 16),
-
-              // Nova Senha
-              TextField(
-                controller: newPasswordController,
-                obscureText: _forgotObscure,
-                decoration: InputDecoration(
-                  labelText: 'Nova senha',
-                  prefixIcon: const Icon(FontAwesomeIcons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _forgotObscure
-                          ? FontAwesomeIcons.eyeSlash
-                          : FontAwesomeIcons.eye,
-                      size: 18,
-                    ),
-                    onPressed: () =>
-                        setState(() => _forgotObscure = !_forgotObscure),
-                  ),
-                  helperText: 'Mínimo 6 caracteres',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Confirmar Nova Senha
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: _forgotConfirmObscure,
-                decoration: InputDecoration(
-                  labelText: 'Confirmar nova senha',
-                  prefixIcon: const Icon(FontAwesomeIcons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _forgotConfirmObscure
-                          ? FontAwesomeIcons.eyeSlash
-                          : FontAwesomeIcons.eye,
-                      size: 18,
-                    ),
-                    onPressed: () => setState(
-                        () => _forgotConfirmObscure = !_forgotConfirmObscure),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-
               const SizedBox(height: 28),
 
-              // Botão Redefinir
+              // Botão Enviar
               ElevatedButton.icon(
                 onPressed: () async {
                   final email = emailController.text.trim();
-                  final newPass = newPasswordController.text;
-                  final confirmPass = confirmPasswordController.text;
                   final ctx = context;
                   final nav = Navigator.of(context);
 
@@ -7907,50 +7866,28 @@ Finanças App — Controle suas finanças com simplicidade.
                     );
                     return;
                   }
-                  if (newPass.length < 6) {
-                    showCenteredAlertModal(
-                      context: ctx,
-                      title: 'Erro',
-                      message: 'A senha deve ter no mínimo 6 caracteres',
-                      icon: FontAwesomeIcons.circleExclamation,
-                      iconColor: expenseColor,
-                    );
-                    return;
-                  }
-                  if (newPass != confirmPass) {
-                    showCenteredAlertModal(
-                      context: ctx,
-                      title: 'Erro',
-                      message: 'As senhas não correspondem',
-                      icon: FontAwesomeIcons.circleExclamation,
-                      iconColor: expenseColor,
-                    );
-                    return;
-                  }
 
-                  final ok = await _authService.resetPassword(
-                    email: email,
-                    newPassword: newPass,
-                  );
+                  try {
+                    await _authService.resetPassword(email: email);
 
-                  if (!mounted) return;
+                    if (!mounted) return;
 
-                  if (ok) {
                     showCenteredAlertModal(
-                      context: ctx,
-                      title: 'Senha redefinida!',
-                      message: 'Faça login com sua nova senha.',
+                      context: context,
+                      title: 'E-mail enviado!',
+                      message: 'Verifique sua caixa de entrada e clique no link para redefinir sua senha.',
                       icon: FontAwesomeIcons.circleCheck,
                       iconColor: successColor,
                     );
                     Future.delayed(const Duration(milliseconds: 2600), () {
                       if (mounted) nav.pop();
                     });
-                  } else {
+                  } catch (e) {
+                    if (!mounted) return;
                     showCenteredAlertModal(
                       context: ctx,
-                      title: 'E-mail não encontrado',
-                      message: 'Nenhuma conta cadastrada com esse e-mail.',
+                      title: 'Erro',
+                      message: e.toString().replaceFirst('Exception: ', ''),
                       icon: FontAwesomeIcons.circleExclamation,
                       iconColor: expenseColor,
                     );
@@ -7962,9 +7899,9 @@ Finanças App — Controle suas finanças com simplicidade.
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(FontAwesomeIcons.key),
+                icon: const Icon(FontAwesomeIcons.paperPlane),
                 label: const Text(
-                  'Redefinir Senha',
+                  'Enviar link de redefinição',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -7994,100 +7931,59 @@ Finanças App — Controle suas finanças com simplicidade.
     Transaction? transactionToEdit,
     String? defaultFilterType,
   ]) {
-    // If editing an existing transaction, show a centered dialog
-    if (transactionToEdit != null) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AnimatedPadding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
+    Widget buildDialogContent(BuildContext ctx) {
+      final mq = MediaQuery.of(ctx);
+      final keyboard = mq.viewInsets.bottom;
+      final screen   = mq.size.height;
+      final top      = mq.padding.top;
+      // Altura máxima disponível acima do teclado, descontando
+      // o espaço da status bar e os insets verticais do Dialog (24+24).
+      final maxH = (screen - keyboard - top - 48).clamp(200.0, double.infinity);
+
+      return AnimatedPadding(
+        padding: EdgeInsets.only(bottom: keyboard),
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              constraints: BoxConstraints(
+                maxWidth: 400,
+                minWidth: 300,
+                maxHeight: maxH,
+              ),
+              child: NewTransactionForm(
+                categories: _categories,
+                addTransaction: _addTransaction,
+                updateTransaction: _updateTransaction,
+                transactionToEdit: transactionToEdit,
+                defaultFilterType: defaultFilterType,
+                onCategoryAdded: (Category cat) {
+                  _categories.add(cat);
+                  setState(() {});
+                  _saveCachedData();
+                },
+              ),
             ),
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            child: Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 24,
-              ),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 400,
-                      minWidth: 300,
-                    ),
-                    child: NewTransactionForm(
-                      categories: _categories,
-                      addTransaction: _addTransaction,
-                      updateTransaction: _updateTransaction,
-                      transactionToEdit: transactionToEdit,
-                      defaultFilterType: defaultFilterType,
-                      onCategoryAdded: (Category cat) {
-                        _categories.add(cat);
-                        setState(() {});
-                        _saveCachedData();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+          ),
+        ),
       );
-      return;
     }
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AnimatedPadding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          child: Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 24,
-            ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 400,
-                    minWidth: 300,
-                  ),
-                  child: NewTransactionForm(
-                    categories: _categories,
-                    addTransaction: _addTransaction,
-                    updateTransaction: _updateTransaction,
-                    transactionToEdit: transactionToEdit,
-                    defaultFilterType: defaultFilterType,
-                    onCategoryAdded: (Category cat) {
-                      _categories.add(cat);
-                      setState(() {});
-                      _saveCachedData();
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      builder: buildDialogContent,
     );
   }
 

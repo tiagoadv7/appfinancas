@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart';
@@ -87,17 +88,36 @@ class FirebaseAuthService implements AuthService {
       throw Exception('Senha não informada');
     }
 
+    // Tenta primeiro com senha em texto puro (contas novas / após reset).
+    // Se falhar, tenta com SHA-256 (contas antigas) e migra automaticamente.
     try {
       final cred = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
-        // Envia apenas o hash SHA-256, nunca a senha em texto puro
-        password: _hashPassword(password),
+        password: password,
       );
       _user = await _buildUser(cred.user!);
       return _user;
     } on fb.FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'user-not-found') {
+        // Fallback: tenta com hash SHA-256 (contas criadas antes da migração)
+        try {
+          final cred = await _auth.signInWithEmailAndPassword(
+            email: email.trim(),
+            password: _hashPassword(password),
+          );
+          // Migra: atualiza senha para texto puro para compatibilidade futura
+          await cred.user!.updatePassword(password);
+          _user = await _buildUser(cred.user!);
+          return _user;
+        } on fb.FirebaseAuthException catch (e2) {
+          throw Exception(_translateError(e2.code));
+        }
+      }
       throw Exception(_translateError(e.code));
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Erro ao fazer login. Verifique sua conexão.');
     }
   }
@@ -136,12 +156,7 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<bool> resetPassword({
-    required String email,
-    required String newPassword,
-  }) async {
-    // Firebase recomenda o fluxo de e-mail de redefinição de senha.
-    // O método abaixo envia um e-mail ao usuário com o link de reset.
+  Future<bool> resetPassword({required String email}) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
       return true;
@@ -149,6 +164,29 @@ class FirebaseAuthService implements AuthService {
       throw Exception(_translateError(e.code));
     } catch (e) {
       throw Exception('Erro ao enviar e-mail de redefinição. Verifique sua conexão.');
+    }
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('Usuário não autenticado.');
+    }
+    final credential = fb.EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    try {
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
+    } on fb.FirebaseAuthException catch (e) {
+      throw Exception(_translateError(e.code));
+    } catch (e) {
+      throw Exception('Erro ao trocar a senha. Verifique sua conexão.');
     }
   }
 
@@ -179,9 +217,9 @@ class FirebaseAuthService implements AuthService {
           ..addScope('profile');
         cred = await _auth.signInWithPopup(googleProvider);
       } else {
-        // Fluxo nativo: exibe o seletor de contas do dispositivo
-        // Não passar clientId no mobile — vem do google-services.json / GoogleService-Info.plist
         final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+        // Força deslogar conta anterior para sempre exibir o seletor de contas
+        await googleSignIn.signOut();
         final account = await googleSignIn.signIn();
         if (account == null) return null; // usuário cancelou
 
@@ -206,14 +244,18 @@ class FirebaseAuthService implements AuthService {
       return _user;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
-    } catch (e) {
-      // Captura erros genéricos do web (ex: popup bloqueado, domínio não autorizado)
-      // e exceções de JS interop que escapam do handler FirebaseAuthException
-      if (e.toString().contains('popup-closed') ||
-          e.toString().contains('popup_closed')) {
-        return null; // usuário fechou o popup — comportamento normal
+    } on PlatformException catch (e) {
+      if (e.code == 'sign_in_canceled' || e.code == 'sign_in_failed') {
+        return null;
       }
-      throw Exception('Erro ao entrar com Google. Verifique sua conexão e tente novamente.');
+      throw Exception('Erro ao entrar com Google: ${e.message}');
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('popup-closed') || msg.contains('popup_closed') ||
+          msg.contains('sign_in_canceled')) {
+        return null;
+      }
+      throw Exception('Erro ao entrar com Google. Verifique se o SHA-1 do app está configurado no Firebase Console.');
     }
   }
 
@@ -228,24 +270,28 @@ class FirebaseAuthService implements AuthService {
   String _translateError(String code) {
     switch (code) {
       case 'user-not-found':
-        return 'Usuário não encontrado. Verifique o e-mail.';
+        return 'E-mail não encontrado. Verifique e tente novamente.';
       case 'wrong-password':
+        return 'Senha incorreta. Verifique e tente novamente.';
       case 'invalid-credential':
-        return 'E-mail ou senha incorretos.';
+        // Firebase v9+ agrupa email/senha errados neste código por segurança
+        return 'E-mail ou senha incorretos. Verifique e tente novamente.';
+      case 'invalid-email':
+        return 'E-mail inválido. Verifique o formato.';
       case 'email-already-in-use':
         return 'Este e-mail já está cadastrado.';
       case 'weak-password':
         return 'Senha muito fraca. Use ao menos 6 caracteres.';
-      case 'invalid-email':
-        return 'E-mail inválido.';
       case 'user-disabled':
-        return 'Esta conta foi desativada.';
+        return 'Esta conta foi desativada. Entre em contato com o suporte.';
       case 'too-many-requests':
-        return 'Muitas tentativas. Tente novamente mais tarde.';
+        return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
       case 'network-request-failed':
-        return 'Erro de conexão. Verifique sua internet.';
+        return 'Sem conexão. Verifique sua internet e tente novamente.';
+      case 'operation-not-allowed':
+        return 'Login com e-mail desativado. Contate o suporte.';
       default:
-        return 'Erro de autenticação ($code).';
+        return 'Erro de autenticação. Tente novamente ($code).';
     }
   }
 }
