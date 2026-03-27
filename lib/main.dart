@@ -4099,6 +4099,9 @@ class ProfileScreen extends StatefulWidget {
   final Function(String) onDeleteCategory;
   final Future<void> Function()? onSyncToFirebase;
   final Future<bool> Function()? onCheckExistingData;
+  final List<Transaction> transactions;
+  final DateTime selectedMonth;
+  final Category Function(String) getCategoryById;
 
   const ProfileScreen({
     super.key,
@@ -4112,6 +4115,9 @@ class ProfileScreen extends StatefulWidget {
     required this.categories,
     required this.onEditCategory,
     required this.onDeleteCategory,
+    required this.transactions,
+    required this.selectedMonth,
+    required this.getCategoryById,
     this.onSyncToFirebase,
     this.onCheckExistingData,
   });
@@ -4124,6 +4130,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   bool _isEditing = false;
+
+  /// Soma todas as entradas (income) do mês selecionado, incluindo recorrentes.
+  /// Soma todas as entradas (income) do mês selecionado, incluindo recorrentes.
+  double _incomeForSelectedMonth() {
+    final month = widget.selectedMonth;
+    double total = 0;
+    for (final t in widget.transactions) {
+      final cat = widget.getCategoryById(t.categoryId);
+      if (cat.type != 'income') continue;
+      bool matches;
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        final start = DateTime.parse('${t.recurringStartMonth}-01');
+        final end = DateTime.parse('${t.recurringEndMonth}-01');
+        final sel = DateTime(month.year, month.month);
+        matches = !sel.isBefore(start) && !sel.isAfter(end);
+      } else {
+        matches = t.date.year == month.year && t.date.month == month.month;
+      }
+      if (matches) total += t.amount;
+    }
+    return total;
+  }
 
   @override
   void initState() {
@@ -4906,9 +4936,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       FontAwesomeIcons.moneyBill,
                       color: primaryColor,
                     ),
-                    title: const Text('Salário'),
+                    title: const Text('Renda'),
                     subtitle: Text(
-                      formatCurrency(widget.user.salary),
+                      '${formatCurrency(_incomeForSelectedMonth())} · ${DateFormat('MMM/yyyy', 'pt_BR').format(widget.selectedMonth)}',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -7970,8 +8000,12 @@ Finanças App — Controle suas finanças com simplicidade.
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return MediaQuery(
-            data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
+          return AnimatedPadding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
             child: Dialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -8014,9 +8048,12 @@ Finanças App — Controle suas finanças com simplicidade.
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        // Remove viewInsets do teclado para o dialog não se mover/redimensionar
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
+        return AnimatedPadding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
           child: Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -8169,6 +8206,9 @@ Finanças App — Controle suas finanças com simplicidade.
                   onDeleteCategory: _deleteCategory,
                   onSyncToFirebase: _syncToFirebase,
                   onCheckExistingData: _checkExistingFirebaseData,
+                  transactions: _transactions,
+                  selectedMonth: _dashboardSelectedMonth,
+                  getCategoryById: _getCategoryById,
                 ),
               ],
             ),
