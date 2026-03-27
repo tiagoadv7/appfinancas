@@ -156,6 +156,14 @@ class FirestoreService {
             }).toList());
   }
 
+  /// Nomes das categorias padrão do app. Usados para normalizar `isDefault`
+  /// em contas antigas que não tinham esse campo no Firestore.
+  static const _defaultCategoryNames = {
+    'Salário', 'Freelancer', 'Investimentos', 'Presente', 'Reembolso',
+    'Alimentação', 'Assinaturas', 'Compras', 'Educação', 'Lazer',
+    'Moradia', 'Odonto', 'Outros', 'Saúde', 'Transporte',
+  };
+
   /// Stream em tempo real de categorias no formato raw compatível com Category.fromMap do app.
   Stream<List<Map<String, dynamic>>> categoriesAppStream(String uid) {
     return _catCol(uid)
@@ -166,6 +174,9 @@ class FirestoreService {
               data['id'] = doc.id;
               // Garante que iconName seja preenchido (Firestore usa 'icon')
               data['iconName'] = data['iconName'] ?? data['icon'] ?? 'Porquinho';
+              // Normaliza isDefault: se ausente no Firestore, infere pelo nome
+              data['isDefault'] = data['isDefault'] ??
+                  _defaultCategoryNames.contains(data['name']);
               return data;
             }).toList());
   }
@@ -264,21 +275,22 @@ class FirestoreService {
 
     final defaults = [
       // ── Saídas ──────────────────────────────────────────────────────
-      _cat('Alimentação',  'faUtensils',       0xFFEF5350, 'expense'),
-      _cat('Transporte',   'faCar',            0xFF42A5F5, 'expense'),
-      _cat('Moradia',      'faHouse',          0xFF66BB6A, 'expense'),
-      _cat('Saúde',        'faHeart',          0xFFEC407A, 'expense'),
-      _cat('Educação',     'faGraduationCap',  0xFFAB47BC, 'expense'),
-      _cat('Lazer',        'faGamepad',        0xFFFF7043, 'expense'),
-      _cat('Compras',      'faShoppingCart',   0xFF26C6DA, 'expense'),
-      _cat('Assinaturas',  'faRepeat',         0xFF8D6E63, 'expense'),
-      _cat('Outros',       'faEllipsis',       0xFF9E9E9E, 'expense'),
+      _cat('Alimentação',  'Talheres',         0xFFEF5350, 'expense'),
+      _cat('Transporte',   'Carro',            0xFF42A5F5, 'expense'),
+      _cat('Moradia',      'Casa',             0xFF66BB6A, 'expense'),
+      _cat('Saúde',        'Saude',            0xFFEC407A, 'expense'),
+      _cat('Educação',     'Escola',           0xFFAB47BC, 'expense'),
+      _cat('Lazer',        'Controle',         0xFFFF7043, 'expense'),
+      _cat('Compras',      'CarrinhoCompras',  0xFF26C6DA, 'expense'),
+      _cat('Assinaturas',  'CartaoCredito',    0xFF8D6E63, 'expense'),
+      _cat('Odonto',       'Odonto',           0xFF29B6F6, 'expense'),
+      _cat('Outros',       'Cifrão',           0xFF9E9E9E, 'expense'),
       // ── Entradas ────────────────────────────────────────────────────
-      _cat('Salário',      'faBriefcase',      0xFF26A69A, 'income'),
-      _cat('Freelance',    'faLaptop',         0xFF7E57C2, 'income'),
-      _cat('Investimentos','faChartLine',      0xFFFFCA28, 'income'),
-      _cat('Presente',     'faGift',           0xFFFF8A65, 'income'),
-      _cat('Reembolso',    'faArrowRotateLeft',0xFF29B6F6, 'income'),
+      _cat('Salário',      'Maleta',           0xFF26A69A, 'income'),
+      _cat('Freelancer',   'Computador',       0xFF7E57C2, 'income'),
+      _cat('Investimentos','SetaCimaTendencia',0xFFFFCA28, 'income'),
+      _cat('Presente',     'Presente',         0xFFFF8A65, 'income'),
+      _cat('Reembolso',    'Recibo',           0xFF29B6F6, 'income'),
     ];
 
     final batch = _db.batch();

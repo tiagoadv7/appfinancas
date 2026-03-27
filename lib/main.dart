@@ -66,6 +66,8 @@ Map<String, IconData> iconMap = {
   'Cachorro': FontAwesomeIcons.dog,
   'Criancas': FontAwesomeIcons.child,
   'Halter': FontAwesomeIcons.dumbbell,
+  'Saude': FontAwesomeIcons.stethoscope,
+  'Odonto': FontAwesomeIcons.tooth,
   'Musica': FontAwesomeIcons.music,
   'Paleta': FontAwesomeIcons.palette,
   'Camera': FontAwesomeIcons.camera,
@@ -189,18 +191,21 @@ class Category {
   final String name;
   final String type; // 'income' ou 'expense'
   final String iconName;
+  final bool isDefault;
 
   Category.fromMap(Map<String, dynamic> data)
     : id = (data['id'] ?? '').toString(),
       name = (data['name'] ?? 'Sem nome').toString(),
       type = (data['type'] ?? 'expense').toString(),
-      iconName = (data['iconName'] ?? data['icon'] ?? 'Porquinho').toString();
+      iconName = (data['iconName'] ?? data['icon'] ?? 'Porquinho').toString(),
+      isDefault = (data['isDefault'] as bool?) ?? false;
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
     'type': type,
     'iconName': iconName,
+    'isDefault': isDefault,
   };
 }
 
@@ -619,21 +624,23 @@ String formatDate(DateTime date) {
 
 // --- Dados Mock (Simulando Banco de Dados) ---
 final List<Map<String, dynamic>> mockCategoriesData = [
-  {'id': 'cat-1', 'name': 'Salário', 'type': 'income', 'iconName': 'Maleta'},
-  {
-    'id': 'cat-2',
-    'name': 'Alimentação',
-    'type': 'expense',
-    'iconName': 'Talheres',
-  },
-  {'id': 'cat-3', 'name': 'Moradia', 'type': 'expense', 'iconName': 'Casa'},
-  {
-    'id': 'cat-4',
-    'name': 'Investimentos',
-    'type': 'income',
-    'iconName': 'Porquinho',
-  },
-  {'id': 'cat-5', 'name': 'Educação', 'type': 'expense', 'iconName': 'Escola'},
+  // ── Entradas ──────────────────────────────────────────────────────
+  {'id': 'cat-1',  'name': 'Salário',      'type': 'income',  'iconName': 'Maleta',           'isDefault': true},
+  {'id': 'cat-2',  'name': 'Freelancer',   'type': 'income',  'iconName': 'Computador',       'isDefault': true},
+  {'id': 'cat-3',  'name': 'Investimentos','type': 'income',  'iconName': 'SetaCimaTendencia','isDefault': true},
+  {'id': 'cat-4',  'name': 'Presente',     'type': 'income',  'iconName': 'Presente',         'isDefault': true},
+  {'id': 'cat-5',  'name': 'Reembolso',    'type': 'income',  'iconName': 'Recibo',           'isDefault': true},
+  // ── Saídas ────────────────────────────────────────────────────────
+  {'id': 'cat-6',  'name': 'Alimentação',  'type': 'expense', 'iconName': 'Talheres',         'isDefault': true},
+  {'id': 'cat-7',  'name': 'Assinaturas',  'type': 'expense', 'iconName': 'CartaoCredito',    'isDefault': true},
+  {'id': 'cat-8',  'name': 'Compras',      'type': 'expense', 'iconName': 'CarrinhoCompras',  'isDefault': true},
+  {'id': 'cat-9',  'name': 'Educação',     'type': 'expense', 'iconName': 'Escola',           'isDefault': true},
+  {'id': 'cat-10', 'name': 'Lazer',        'type': 'expense', 'iconName': 'Controle',         'isDefault': true},
+  {'id': 'cat-11', 'name': 'Moradia',      'type': 'expense', 'iconName': 'Casa',             'isDefault': true},
+  {'id': 'cat-12', 'name': 'Odonto',       'type': 'expense', 'iconName': 'Odonto',           'isDefault': true},
+  {'id': 'cat-13', 'name': 'Outros',       'type': 'expense', 'iconName': 'Cifrão',           'isDefault': true},
+  {'id': 'cat-14', 'name': 'Saúde',        'type': 'expense', 'iconName': 'Saude',            'isDefault': true},
+  {'id': 'cat-15', 'name': 'Transporte',   'type': 'expense', 'iconName': 'Carro',            'isDefault': true},
 ];
 
 final List<Map<String, dynamic>> mockTransactionsData = [
@@ -937,11 +944,17 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
 
   @override
   Widget build(BuildContext context) {
-    final incomeCategories = widget.categories
-        .where((c) => c.type == 'income')
+    final incomeDefault = widget.categories
+        .where((c) => c.type == 'income' && c.isDefault)
         .toList();
-    final expenseCategories = widget.categories
-        .where((c) => c.type == 'expense')
+    final incomeCustom = widget.categories
+        .where((c) => c.type == 'income' && !c.isDefault)
+        .toList();
+    final expenseDefault = widget.categories
+        .where((c) => c.type == 'expense' && c.isDefault)
+        .toList();
+    final expenseCustom = widget.categories
+        .where((c) => c.type == 'expense' && !c.isDefault)
         .toList();
 
     return Form(
@@ -954,7 +967,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _isEditing ? 'Editar Transação' : 'Nova Transação',
+                _isEditing ? 'Editar Transação' : 'Novo',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -1029,58 +1042,231 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Categoria',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(24)),
-                    ),
-                  ),
-                  borderRadius: BorderRadius.circular(24),
+                child: FormField<String>(
                   initialValue: _selectedCategoryId,
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Selecione uma Categoria'),
-                    ),
-                    const DropdownMenuItem(
-                      value: 'divider1',
-                      enabled: false,
-                      child: Divider(thickness: 2, height: 5),
-                    ),
-                    ...incomeCategories.map(
-                      (cat) => DropdownMenuItem(
-                        value: cat.id,
-                        child: Text(
-                          '${cat.name} (Entrada)',
-                          style: TextStyle(color: incomeColor),
-                        ),
-                      ),
-                    ),
-                    const DropdownMenuItem(
-                      value: 'divider2',
-                      enabled: false,
-                      child: Divider(thickness: 2, height: 5),
-                    ),
-                    ...expenseCategories.map(
-                      (cat) => DropdownMenuItem(
-                        value: cat.id,
-                        child: Text(
-                          '${cat.name} (Saída)',
-                          style: TextStyle(color: expenseColor),
-                        ),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != 'divider1' && value != 'divider2') {
-                      setState(() {
-                        _selectedCategoryId = value;
-                      });
-                    }
-                  },
                   validator: (value) =>
                       value == null ? 'Selecione uma categoria' : null,
+                  builder: (state) {
+                    final selectedCat = state.value != null
+                        ? widget.categories.firstWhere(
+                            (c) => c.id == state.value,
+                            orElse: () => widget.categories.first,
+                          )
+                        : null;
+                    return GestureDetector(
+                      onTap: () async {
+                        final result = await showDialog<String>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            title: const Text('Selecione uma Categoria'),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 8),
+                            content: SizedBox(
+                              width: double.maxFinite,
+                              child: ListView(
+                                shrinkWrap: true,
+                                children: [
+                                  if (incomeDefault.isNotEmpty) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 8, 16, 4),
+                                      child: Text(
+                                        'Entradas',
+                                        style: TextStyle(
+                                          color: incomeColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    ...incomeDefault.map(
+                                      (cat) => ListTile(
+                                        leading: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor:
+                                              incomeColor.withValues(alpha: 0.15),
+                                          child: Icon(
+                                            iconMap[cat.iconName] ??
+                                                Icons.circle,
+                                            color: incomeColor,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        title: Text(cat.name),
+                                        selected: cat.id == state.value,
+                                        selectedTileColor:
+                                            incomeColor.withValues(alpha: 0.08),
+                                        onTap: () =>
+                                            Navigator.of(ctx).pop(cat.id),
+                                      ),
+                                    ),
+                                  ],
+                                  if (incomeCustom.isNotEmpty) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 8, 16, 4),
+                                      child: Text(
+                                        'Entradas Personalizadas',
+                                        style: TextStyle(
+                                          color: incomeColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    ...incomeCustom.map(
+                                      (cat) => ListTile(
+                                        leading: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor:
+                                              incomeColor.withValues(alpha: 0.15),
+                                          child: Icon(
+                                            iconMap[cat.iconName] ??
+                                                Icons.circle,
+                                            color: incomeColor,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        title: Text(cat.name),
+                                        selected: cat.id == state.value,
+                                        selectedTileColor:
+                                            incomeColor.withValues(alpha: 0.08),
+                                        onTap: () =>
+                                            Navigator.of(ctx).pop(cat.id),
+                                      ),
+                                    ),
+                                  ],
+                                  if (incomeDefault.isNotEmpty || incomeCustom.isNotEmpty)
+                                    const Divider(height: 1),
+                                  if (expenseDefault.isNotEmpty) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 8, 16, 4),
+                                      child: Text(
+                                        'Saídas',
+                                        style: TextStyle(
+                                          color: expenseColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    ...expenseDefault.map(
+                                      (cat) => ListTile(
+                                        leading: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor:
+                                              expenseColor.withValues(alpha: 0.15),
+                                          child: Icon(
+                                            iconMap[cat.iconName] ??
+                                                Icons.circle,
+                                            color: expenseColor,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        title: Text(cat.name),
+                                        selected: cat.id == state.value,
+                                        selectedTileColor:
+                                            expenseColor.withValues(alpha: 0.08),
+                                        onTap: () =>
+                                            Navigator.of(ctx).pop(cat.id),
+                                      ),
+                                    ),
+                                  ],
+                                  if (expenseCustom.isNotEmpty) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 8, 16, 4),
+                                      child: Text(
+                                        'Saídas Personalizadas',
+                                        style: TextStyle(
+                                          color: expenseColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    ...expenseCustom.map(
+                                      (cat) => ListTile(
+                                        leading: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor:
+                                              expenseColor.withValues(alpha: 0.15),
+                                          child: Icon(
+                                            iconMap[cat.iconName] ??
+                                                Icons.circle,
+                                            color: expenseColor,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        title: Text(cat.name),
+                                        selected: cat.id == state.value,
+                                        selectedTileColor:
+                                            expenseColor.withValues(alpha: 0.08),
+                                        onTap: () =>
+                                            Navigator.of(ctx).pop(cat.id),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton.icon(
+                                icon: const Icon(FontAwesomeIcons.xmark),
+                                label: const Text('Cancelar'),
+                                onPressed: () => Navigator.of(ctx).pop(),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (result != null) {
+                          setState(() => _selectedCategoryId = result);
+                          state.didChange(result);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Categoria',
+                          border: const OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(24)),
+                          ),
+                          suffixIcon: const Icon(Icons.arrow_drop_down),
+                          errorText: state.errorText,
+                        ),
+                        child: selectedCat != null
+                            ? Row(
+                                children: [
+                                  Icon(
+                                    iconMap[selectedCat.iconName] ??
+                                        Icons.circle,
+                                    size: 16,
+                                    color: selectedCat.type == 'income'
+                                        ? incomeColor
+                                        : expenseColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${selectedCat.name} '
+                                      '(${selectedCat.type == 'income' ? 'Entrada' : 'Saída'})',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                'Selecione uma Categoria',
+                                style: TextStyle(
+                                    color: Theme.of(context).hintColor),
+                              ),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -1944,10 +2130,21 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTime _selectedDate = DateTime.now();
+  late String _activeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeFilter = widget.filterType;
+  }
 
   @override
   void didUpdateWidget(TransactionsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Sincroniza filtro quando o pai muda (ex: clique nos cards do dashboard)
+    if (widget.filterType != oldWidget.filterType) {
+      setState(() => _activeFilter = widget.filterType);
+    }
     // Navega ao mês indicado quando o pai solicita (ex: após adicionar recorrência)
     if (widget.focusDate != null &&
         widget.focusDate != oldWidget.focusDate &&
@@ -1960,6 +2157,37 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
       });
     }
+  }
+
+  Widget _filterChip(String label, String value, Color color, IconData icon) {
+    final selected = _activeFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _activeFilter = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color : color.withAlpha(20),
+          borderRadius: BorderRadius.circular(50),
+          border: Border.all(color: color, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? Colors.white : color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -2025,25 +2253,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
     final filteredTransactions = expandedForMonth.where((t) {
       final cat = widget.getCategoryById(t.categoryId);
-      return widget.filterType == 'all' || cat.type == widget.filterType;
+      return _activeFilter == 'all' || cat.type == _activeFilter;
     }).toList();
 
     // Ordenar por data decrescente
     filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
-
-    // Calcular totais
-    double totalIncome = 0;
-    double totalExpense = 0;
-    for (final t in filteredTransactions) {
-      // Considerar apenas transações pagas/recebidas nos totais
-      if (!t.isPaid) continue;
-      final cat = widget.getCategoryById(t.categoryId);
-      if (cat.type == 'income') {
-        totalIncome += t.amount;
-      } else {
-        totalExpense += t.amount;
-      }
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2091,7 +2305,20 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // Filter chips — Todos / Entradas / Saídas
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _filterChip('Todos', 'all', Colors.grey.shade600, FontAwesomeIcons.list),
+            const SizedBox(width: 8),
+            _filterChip('Entradas', 'income', incomeColor, FontAwesomeIcons.arrowTrendUp),
+            const SizedBox(width: 8),
+            _filterChip('Saídas', 'expense', expenseColor, FontAwesomeIcons.arrowTrendDown),
+          ],
+        ),
+        const SizedBox(height: 12),
 
         // Month Selector — pill shape, full width
         Container(
@@ -2171,54 +2398,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Cards de Totais
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (widget.filterType == 'all') {
-                // Side-by-side layout: left=Saídas (expense), right=Entradas (income)
-                return Row(
-                  children: [
-                    // Left: Saídas (Expenses)
-                    Expanded(
-                      child: SummaryCard(
-                        title: 'Saídas',
-                        value: totalExpense,
-                        color: expenseColor,
-                        icon: Icons.trending_down,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Right: Entradas (Income)
-                    Expanded(
-                      child: SummaryCard(
-                        title: 'Entradas',
-                        value: totalIncome,
-                        color: incomeColor,
-                        icon: Icons.trending_up,
-                      ),
-                    ),
-                  ],
-                );
-              } else if (widget.filterType == 'income') {
-                return SummaryCard(
-                  title: 'Total de Entradas',
-                  value: totalIncome,
-                  color: incomeColor,
-                  icon: Icons.trending_up,
-                );
-              } else {
-                return SummaryCard(
-                  title: 'Total de Saídas',
-                  value: totalExpense,
-                  color: expenseColor,
-                  icon: Icons.trending_down,
-                );
-              }
-            },
-          ),
-        ),
         if (filteredTransactions.isEmpty)
           _buildEmptyState(context)
         else
@@ -2697,6 +2876,7 @@ class CategorySummaryCard extends StatelessWidget {
   final String icon;
   final List<Map<String, dynamic>> data;
   final Color color;
+  final double total;
 
   const CategorySummaryCard({
     super.key,
@@ -2704,6 +2884,7 @@ class CategorySummaryCard extends StatelessWidget {
     required this.icon,
     required this.data,
     required this.color,
+    required this.total,
   });
 
   @override
@@ -2725,6 +2906,15 @@ class CategorySummaryCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  formatCurrency(total).replaceAll('R\$', '').trim(),
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: color,
                   ),
@@ -2810,7 +3000,7 @@ class DashboardScreen extends StatelessWidget {
   final Map<String, double> summary;
   final DateTime selectedMonth;
   final void Function(DateTime) onMonthChanged;
-  final VoidCallback? onNavigateToExtract;
+  final void Function(String filterType)? onNavigateToExtract;
 
   const DashboardScreen({
     super.key,
@@ -2989,7 +3179,7 @@ class DashboardScreen extends StatelessWidget {
                         icon: Icons.event_note_outlined,
                         label: 'Previsto',
                         value: previsto,
-                        color: primaryColor,
+                        color: previsto < 0 ? expenseColor : primaryColor,
                       ),
                     ],
                   ),
@@ -3038,7 +3228,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     if (onNavigateToExtract != null)
                       GestureDetector(
-                        onTap: onNavigateToExtract,
+                        onTap: () => onNavigateToExtract?.call('all'),
                         child: Padding(
                           padding: const EdgeInsets.only(left: 8),
                           child: Icon(
@@ -3112,7 +3302,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: onNavigateToExtract,
+                      onTap: () => onNavigateToExtract?.call('income'),
                       child: Icon(Icons.chevron_right, color: Colors.grey[400]),
                     ),
                   ],
@@ -3196,7 +3386,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: onNavigateToExtract,
+                      onTap: () => onNavigateToExtract?.call('expense'),
                       child: Icon(Icons.chevron_right, color: Colors.grey[400]),
                     ),
                   ],
@@ -3236,7 +3426,7 @@ class DashboardScreen extends StatelessWidget {
     required double value,
     Color color = primaryColor,
   }) {
-    final text = formatCurrency(value).replaceAll('R\$', '').trim();
+    final text = formatCurrency(value.abs()).replaceAll('R\$', '').trim();
     final subColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return Expanded(
       child: Column(
@@ -3565,18 +3755,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
     List<Map<String, dynamic>> sortedIncomeCats,
     List<Map<String, dynamic>> sortedExpenseCats,
   ) {
+    final totalIncome = (pieData.isNotEmpty ? pieData[0]['income'] : 0.0) as double;
+    final totalExpense = (pieData.isNotEmpty ? pieData[0]['expense'] : 0.0) as double;
+
     return Column(
       children: [
-        // 1. Gráfico de Pizza (Topo)
+        // Gráfico de Pizza
         ChartCard(
           title: 'Distribuição Mensal',
           height: 250,
           chartWidget: AnnualPieChart(data: pieData),
         ),
-
         const SizedBox(height: 16),
 
-        // 3. Tabelas de Categorias (Entradas e Saídas)
+        // Tabelas por categoria
         LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 600;
@@ -3589,6 +3781,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     icon: 'SetaCimaTendencia',
                     data: sortedIncomeCats,
                     color: incomeColor,
+                    total: totalIncome,
                   ),
                   const SizedBox(height: 16),
                   CategorySummaryCard(
@@ -3596,6 +3789,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     icon: 'Painel',
                     data: sortedExpenseCats,
                     color: expenseColor,
+                    total: totalExpense,
                   ),
                 ],
               );
@@ -3610,6 +3804,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     icon: 'SetaCimaTendencia',
                     data: sortedIncomeCats,
                     color: incomeColor,
+                    total: totalIncome,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -3619,6 +3814,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     icon: 'Painel',
                     data: sortedExpenseCats,
                     color: expenseColor,
+                    total: totalExpense,
                   ),
                 ),
               ],
@@ -4329,9 +4525,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showCustomCategoriesListDialog() {
-    final customCats = widget.categories.where((c) {
-      return !mockCategoriesData.any((m) => m['id'] == c.id);
-    }).toList();
+    final customCats = widget.categories.where((c) => !c.isDefault).toList();
 
     showDialog(
       context: context,
@@ -4822,7 +5016,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               leading: const Icon(FontAwesomeIcons.tag, color: primaryColor),
               title: const Text('Categorias Personalizadas'),
               subtitle: Text(
-                '${widget.categories.where((c) => !mockCategoriesData.any((m) => m['id'] == c.id)).length} cadastradas',
+                '${widget.categories.where((c) => !c.isDefault).length} cadastradas',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -5313,10 +5507,18 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   // Estado da Aplicação
   bool _isLoading = true;
   bool _isLocked = false;
+
+  // Visibilidade de senha nas telas de autenticação
+  bool _loginObscure = true;
+  bool _signupObscure = true;
+  bool _signupConfirmObscure = true;
+  bool _forgotObscure = true;
+  bool _forgotConfirmObscure = true;
   int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
   DateTime _dashboardSelectedMonth =
       DateTime.now(); // Mês selecionado no Dashboard
   DateTime? _extractFocusDate; // Força navegação do extrato para este mês
+  String _extractFilterType = 'all'; // 'all', 'income', 'expense'
 
   late final AuthService _authService;
   final FirestoreService _firestoreService = FirestoreService();
@@ -5414,12 +5616,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused && !_isGuest) {
       setState(() => _isLocked = true);
     }
-    // Dispara biometria automaticamente ao voltar para o app — igual aos apps de banco
-    if (state == AppLifecycleState.resumed && _isLocked) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && _isLocked) _unlockApp();
-      });
-    }
+    // Aguarda o usuário clicar para desbloquear — não dispara automaticamente
   }
 
   Future<void> _unlockApp() async {
@@ -7082,10 +7279,20 @@ Finanças App — Controle suas finanças com simplicidade.
                   const SizedBox(height: 16),
                   TextField(
                     controller: passwordController,
-                    obscureText: true,
+                    obscureText: _loginObscure,
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _loginObscure
+                              ? FontAwesomeIcons.eyeSlash
+                              : FontAwesomeIcons.eye,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _loginObscure = !_loginObscure),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -7367,10 +7574,20 @@ Finanças App — Controle suas finanças com simplicidade.
                   // Senha
                   TextField(
                     controller: passwordController,
-                    obscureText: true,
+                    obscureText: _signupObscure,
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _signupObscure
+                              ? FontAwesomeIcons.eyeSlash
+                              : FontAwesomeIcons.eye,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _signupObscure = !_signupObscure),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -7386,10 +7603,20 @@ Finanças App — Controle suas finanças com simplicidade.
                   // Confirmar Senha
                   TextField(
                     controller: confirmPasswordController,
-                    obscureText: true,
+                    obscureText: _signupConfirmObscure,
                     decoration: InputDecoration(
                       labelText: 'Confirmar Senha',
                       prefixIcon: const Icon(FontAwesomeIcons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _signupConfirmObscure
+                              ? FontAwesomeIcons.eyeSlash
+                              : FontAwesomeIcons.eye,
+                          size: 18,
+                        ),
+                        onPressed: () => setState(
+                            () => _signupConfirmObscure = !_signupConfirmObscure),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -7575,10 +7802,20 @@ Finanças App — Controle suas finanças com simplicidade.
               // Nova Senha
               TextField(
                 controller: newPasswordController,
-                obscureText: true,
+                obscureText: _forgotObscure,
                 decoration: InputDecoration(
                   labelText: 'Nova senha',
                   prefixIcon: const Icon(FontAwesomeIcons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _forgotObscure
+                          ? FontAwesomeIcons.eyeSlash
+                          : FontAwesomeIcons.eye,
+                      size: 18,
+                    ),
+                    onPressed: () =>
+                        setState(() => _forgotObscure = !_forgotObscure),
+                  ),
                   helperText: 'Mínimo 6 caracteres',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -7595,10 +7832,20 @@ Finanças App — Controle suas finanças com simplicidade.
               // Confirmar Nova Senha
               TextField(
                 controller: confirmPasswordController,
-                obscureText: true,
+                obscureText: _forgotConfirmObscure,
                 decoration: InputDecoration(
                   labelText: 'Confirmar nova senha',
                   prefixIcon: const Icon(FontAwesomeIcons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _forgotConfirmObscure
+                          ? FontAwesomeIcons.eyeSlash
+                          : FontAwesomeIcons.eye,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(
+                        () => _forgotConfirmObscure = !_forgotConfirmObscure),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -7723,7 +7970,54 @@ Finanças App — Controle suas finanças com simplicidade.
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return Dialog(
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 400,
+                      minWidth: 300,
+                    ),
+                    child: NewTransactionForm(
+                      categories: _categories,
+                      addTransaction: _addTransaction,
+                      updateTransaction: _updateTransaction,
+                      transactionToEdit: transactionToEdit,
+                      defaultFilterType: defaultFilterType,
+                      onCategoryAdded: (Category cat) {
+                        _categories.add(cat);
+                        setState(() {});
+                        _saveCachedData();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        // Remove viewInsets do teclado para o dialog não se mover/redimensionar
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
+          child: Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
@@ -7733,7 +8027,7 @@ Finanças App — Controle suas finanças com simplicidade.
             ),
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
                     maxWidth: 400,
@@ -7753,41 +8047,6 @@ Finanças App — Controle suas finanças com simplicidade.
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      );
-      return;
-    }
-
-    // Caso contrário (nova transação) mantemos o bottom sheet
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SingleChildScrollView(
-          child: Padding(
-            // Ajusta o padding para o teclado (viewInsets)
-            padding: EdgeInsets.only(
-              top: 20,
-              left: 20,
-              right: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: NewTransactionForm(
-              categories: _categories,
-              addTransaction: _addTransaction,
-              updateTransaction: _updateTransaction,
-              transactionToEdit: transactionToEdit,
-              defaultFilterType: defaultFilterType,
-              onCategoryAdded: (Category cat) {
-                _categories.add(cat);
-                setState(() {});
-                _saveCachedData();
-              },
             ),
           ),
         );
@@ -7867,8 +8126,10 @@ Finanças App — Controle suas finanças com simplicidade.
                     ),
                     selectedMonth: _dashboardSelectedMonth,
                     onMonthChanged: _updateDashboardMonth,
-                    onNavigateToExtract: () =>
-                        setState(() => _selectedIndex = 1),
+                    onNavigateToExtract: (filterType) => setState(() {
+                      _extractFilterType = filterType;
+                      _selectedIndex = 1;
+                    }),
                   ),
                 ),
                 // Aba 1: Extrato
@@ -7876,7 +8137,7 @@ Finanças App — Controle suas finanças com simplicidade.
                   padding: const EdgeInsets.all(16.0),
                   child: TransactionsScreen(
                     transactions: _transactions,
-                    filterType: 'all',
+                    filterType: _extractFilterType,
                     getCategoryById: _getCategoryById,
                     deleteTransaction: _deleteTransaction,
                     editTransaction: _showNewTransactionModal,
