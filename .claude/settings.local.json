@@ -13,7 +13,8 @@
       "Bash(find 'c:\\\\Users\\\\Tiago Neves\\\\Documents\\\\GitHub\\\\appfinancas/android' -type f \\\\\\(-name *.kt -o -name *.java \\\\\\))",
       "Bash(find 'c:/Users/Tiago Neves/Documents/GitHub/appfinancas' -name *.json -o -name *.xml -o -name *.properties -o -name *.env -o -name .env*)",
       "Bash(grep -r \"AIza\\\\|api_key\\\\|apiKey\\\\|API_KEY\" 'c:/Users/Tiago Neves/Documents/GitHub/appfinancas' --include=*.dart --include=*.gradle --include=*.xml --include=*.properties -l)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(cd c:/Users/Tiago Neves/Documents/GitHub/appfinancas)"
     ]
   }
 }

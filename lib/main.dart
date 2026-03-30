@@ -222,6 +222,7 @@ class Transaction {
   final String? recurringEndMonth; // formato 'yyyy-MM'
   // Controla pago/não-pago por mês para transações recorrentes: {'yyyy-MM': true}
   final Map<String, bool> paidByMonth;
+  final String? comments;
 
   Transaction.fromMap(Map<String, dynamic> data)
     : id = (data['id'] ?? '').toString(),
@@ -239,12 +240,17 @@ class Transaction {
                 (k, v) => MapEntry(k.toString(), v == true),
               ),
             )
-          : {};
+          : {},
+      comments = data['comments']?.toString();
 
   static DateTime _parseDate(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is String) {
-      try { return DateTime.parse(value); } catch (_) { return DateTime.now(); }
+      try {
+        return DateTime.parse(value);
+      } catch (_) {
+        return DateTime.now();
+      }
     }
     return DateTime.now();
   }
@@ -260,6 +266,7 @@ class Transaction {
     'recurringStartMonth': recurringStartMonth,
     'recurringEndMonth': recurringEndMonth,
     'paidByMonth': paidByMonth,
+    'comments': comments,
   };
 
   // Helper para criar uma cópia com isPaid ou paidByMonth alterado
@@ -626,22 +633,112 @@ String formatDate(DateTime date) {
 // --- Dados Mock (Simulando Banco de Dados) ---
 final List<Map<String, dynamic>> mockCategoriesData = [
   // ── Entradas ──────────────────────────────────────────────────────
-  {'id': 'cat-1',  'name': 'Salário',      'type': 'income',  'iconName': 'Maleta',           'isDefault': true},
-  {'id': 'cat-2',  'name': 'Freelancer',   'type': 'income',  'iconName': 'Computador',       'isDefault': true},
-  {'id': 'cat-3',  'name': 'Investimentos','type': 'income',  'iconName': 'SetaCimaTendencia','isDefault': true},
-  {'id': 'cat-4',  'name': 'Presente',     'type': 'income',  'iconName': 'Presente',         'isDefault': true},
-  {'id': 'cat-5',  'name': 'Reembolso',    'type': 'income',  'iconName': 'Recibo',           'isDefault': true},
+  {
+    'id': 'cat-1',
+    'name': 'Salário',
+    'type': 'income',
+    'iconName': 'Maleta',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-2',
+    'name': 'Freelancer',
+    'type': 'income',
+    'iconName': 'Computador',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-3',
+    'name': 'Investimentos',
+    'type': 'income',
+    'iconName': 'SetaCimaTendencia',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-4',
+    'name': 'Presente',
+    'type': 'income',
+    'iconName': 'Presente',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-5',
+    'name': 'Reembolso',
+    'type': 'income',
+    'iconName': 'Recibo',
+    'isDefault': true,
+  },
   // ── Saídas ────────────────────────────────────────────────────────
-  {'id': 'cat-6',  'name': 'Alimentação',  'type': 'expense', 'iconName': 'Talheres',         'isDefault': true},
-  {'id': 'cat-7',  'name': 'Assinaturas',  'type': 'expense', 'iconName': 'CartaoCredito',    'isDefault': true},
-  {'id': 'cat-8',  'name': 'Compras',      'type': 'expense', 'iconName': 'CarrinhoCompras',  'isDefault': true},
-  {'id': 'cat-9',  'name': 'Educação',     'type': 'expense', 'iconName': 'Escola',           'isDefault': true},
-  {'id': 'cat-10', 'name': 'Lazer',        'type': 'expense', 'iconName': 'Controle',         'isDefault': true},
-  {'id': 'cat-11', 'name': 'Moradia',      'type': 'expense', 'iconName': 'Casa',             'isDefault': true},
-  {'id': 'cat-12', 'name': 'Odonto',       'type': 'expense', 'iconName': 'Odonto',           'isDefault': true},
-  {'id': 'cat-13', 'name': 'Outros',       'type': 'expense', 'iconName': 'Cifrão',           'isDefault': true},
-  {'id': 'cat-14', 'name': 'Saúde',        'type': 'expense', 'iconName': 'Saude',            'isDefault': true},
-  {'id': 'cat-15', 'name': 'Transporte',   'type': 'expense', 'iconName': 'Carro',            'isDefault': true},
+  {
+    'id': 'cat-6',
+    'name': 'Alimentação',
+    'type': 'expense',
+    'iconName': 'Talheres',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-7',
+    'name': 'Assinaturas',
+    'type': 'expense',
+    'iconName': 'CartaoCredito',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-8',
+    'name': 'Compras',
+    'type': 'expense',
+    'iconName': 'CarrinhoCompras',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-9',
+    'name': 'Educação',
+    'type': 'expense',
+    'iconName': 'Escola',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-10',
+    'name': 'Lazer',
+    'type': 'expense',
+    'iconName': 'Controle',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-11',
+    'name': 'Moradia',
+    'type': 'expense',
+    'iconName': 'Casa',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-12',
+    'name': 'Odonto',
+    'type': 'expense',
+    'iconName': 'Odonto',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-13',
+    'name': 'Outros',
+    'type': 'expense',
+    'iconName': 'Cifrão',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-14',
+    'name': 'Saúde',
+    'type': 'expense',
+    'iconName': 'Saude',
+    'isDefault': true,
+  },
+  {
+    'id': 'cat-15',
+    'name': 'Transporte',
+    'type': 'expense',
+    'iconName': 'Carro',
+    'isDefault': true,
+  },
 ];
 
 final List<Map<String, dynamic>> mockTransactionsData = [
@@ -764,20 +861,21 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const svgPath = 'assets/images/logo.svg';
-    const pngFallback = 'assets/images/splash.png';
-    // Try to render the SVG everywhere. If it fails or is not supported,
-    // fall back to the PNG asset. This ensures the logo appears on mobile
-    // and web builds consistently.
+    if (kIsWeb) {
+      return Image.asset(
+        'assets/images/splash.png',
+        width: width,
+        height: height,
+        fit: fit,
+      );
+    }
     return SvgPicture.asset(
-      svgPath,
+      'assets/images/logo.svg',
       width: width,
       height: height,
       fit: fit,
       semanticsLabel: 'FinançasApp Logo',
-      placeholderBuilder: (context) =>
-          Image.asset(pngFallback, width: width, height: height, fit: fit),
-      // On error, the `placeholderBuilder` will show the PNG fallback.
+      placeholderBuilder: (_) => SizedBox(width: width, height: height),
     );
   }
 }
@@ -843,6 +941,7 @@ class NewTransactionForm extends StatefulWidget {
   final Transaction? transactionToEdit;
   final String? defaultFilterType;
   final Function(Category)? onCategoryAdded;
+  final double userSalary;
 
   const NewTransactionForm({
     super.key,
@@ -852,6 +951,7 @@ class NewTransactionForm extends StatefulWidget {
     this.transactionToEdit,
     this.defaultFilterType,
     this.onCategoryAdded,
+    this.userSalary = 0.0,
   });
 
   @override
@@ -865,6 +965,8 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   bool _isRecurring = false;
+  bool _isPaid = false;
+  String _comments = '';
   DateTime _recurringStartMonth = DateTime(
     DateTime.now().year,
     DateTime.now().month,
@@ -897,6 +999,8 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
       _amount = t.amount.toString().replaceAll('.', ',');
       _selectedCategoryId = t.categoryId;
       _selectedDate = t.date;
+      _isPaid = t.isPaid;
+      _comments = t.comments ?? '';
     } else {
       // Filtra categorias pelo tipo padrão se fornecido
       final categoriesToFilter = widget.defaultFilterType != null
@@ -905,10 +1009,35 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                 .toList()
           : widget.categories;
 
-      // Tenta pré-selecionar uma categoria padrão do tipo filtrado
-      _selectedCategoryId = categoriesToFilter.isNotEmpty
-          ? categoriesToFilter.first.id
-          : null;
+      // Pré-seleciona Salário para entradas, Moradia para saídas
+      if (widget.defaultFilterType == 'income') {
+        final salario = categoriesToFilter
+            .where((c) => c.name == 'Salário')
+            .firstOrNull;
+        _selectedCategoryId =
+            salario?.id ??
+            (categoriesToFilter.isNotEmpty
+                ? categoriesToFilter.first.id
+                : null);
+      } else if (widget.defaultFilterType == 'expense') {
+        final moradia = categoriesToFilter
+            .where((c) => c.name == 'Moradia')
+            .firstOrNull;
+        _selectedCategoryId =
+            moradia?.id ??
+            (categoriesToFilter.isNotEmpty
+                ? categoriesToFilter.first.id
+                : null);
+      } else {
+        _selectedCategoryId = categoriesToFilter.isNotEmpty
+            ? categoriesToFilter.first.id
+            : null;
+      }
+
+      // Pré-preenche o valor com o salário cadastrado ao abrir para entrada
+      if (widget.defaultFilterType == 'income' && widget.userSalary > 0) {
+        _amount = widget.userSalary.toStringAsFixed(2).replaceAll('.', ',');
+      }
     }
   }
 
@@ -924,7 +1053,8 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
         'amount': parseAmountInput(_amount) ?? 0.0,
         'categoryId': _selectedCategoryId!,
         'date': _selectedDate.toIso8601String().substring(0, 10),
-        'isPaid': false,
+        'isPaid': _isPaid,
+        'comments': _comments,
         'isRecurring': _isRecurring,
         'recurringStartMonth': _isRecurring
             ? _monthKey(_recurringStartMonth)
@@ -945,6 +1075,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
 
   @override
   Widget build(BuildContext context) {
+    final kb = MediaQuery.of(context).viewInsets.bottom;
     final incomeDefault = widget.categories
         .where((c) => c.type == 'income' && c.isDefault)
         .toList();
@@ -958,583 +1089,725 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
         .where((c) => c.type == 'expense' && !c.isDefault)
         .toList();
 
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Cabeçalho fixo ──────────────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _isEditing ? 'Editar Transação' : 'Novo',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
-                ),
-              ),
-              IconButton(
-                icon: Icon(iconMap['X'], color: Colors.grey),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        title: Text(
+          _isEditing ? 'Editar Transação' : 'Novo',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: primaryColor,
           ),
-          const Divider(height: 20),
-
-          // ── Campos com scroll ────────────────────────────────────────────
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Descrição',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-              ),
-            ),
-            onSaved: (value) => _description = value!,
-            validator: (value) => value!.isEmpty ? 'Campo obrigatório' : null,
-            initialValue: _description,
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(iconMap['X'], color: Colors.grey),
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          const SizedBox(height: 15),
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Valor (R\$)',
-              // Adiciona o valor inicial para o campo de valor.
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-              ),
-            ),
-            keyboardType: TextInputType.number,
-            onSaved: (value) => _amount = value!,
-            validator: (value) {
-              if (value!.isEmpty) return 'Campo obrigatório';
-              if (parseAmountInput(value) == null) {
-                return 'Valor inválido. Ex: 1.200,45 ou 1200,45';
-              }
-              return null;
-            },
-            initialValue: _amount,
-          ),
-          const SizedBox(height: 15),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              'Data: ${_formatDateSafe(_selectedDate)}',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-            trailing: const Icon(
-              FontAwesomeIcons.calendar,
-              color: primaryColor,
-            ),
-            onTap: () async {
-              final DateTime? picked = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2101),
-                locale: const Locale('pt', 'BR'),
-              );
-              if (picked != null && picked != _selectedDate) {
-                setState(() {
-                  _selectedDate = picked;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: FormField<String>(
-                  initialValue: _selectedCategoryId,
-                  validator: (value) =>
-                      value == null ? 'Selecione uma categoria' : null,
-                  builder: (state) {
-                    final selectedCat = state.value != null
-                        ? widget.categories.firstWhere(
-                            (c) => c.id == state.value,
-                            orElse: () => widget.categories.first,
-                          )
-                        : null;
-                    return GestureDetector(
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            // ── Campos com scroll ──────────────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Descrição
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                      ),
+                      onSaved: (value) => _description = value!,
+                      validator: (value) =>
+                          value!.isEmpty ? 'Campo obrigatório' : null,
+                      initialValue: _description,
+                    ),
+                    const SizedBox(height: 15),
+                    // Valor
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Valor (R\$)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onSaved: (value) => _amount = value!,
+                      validator: (value) {
+                        if (value!.isEmpty) return 'Campo obrigatório';
+                        final parsed = parseAmountInput(value);
+                        if (parsed == null) {
+                          return 'Valor inválido. Ex: 1.200,45 ou 1200,45';
+                        }
+                        if (parsed <= 0) {
+                          return 'O valor precisa ser maior que zero';
+                        }
+                        return null;
+                      },
+                      initialValue: _amount,
+                    ),
+                    const SizedBox(height: 15),
+                    // Data
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'Data: ${_formatDateSafe(_selectedDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      trailing: const Icon(
+                        FontAwesomeIcons.calendar,
+                        color: primaryColor,
+                      ),
                       onTap: () async {
-                        final result = await showDialog<String>(
+                        final DateTime? picked = await showDatePicker(
                           context: context,
-                          builder: (ctx) => AlertDialog(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            title: const Text('Selecione uma Categoria'),
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            content: SizedBox(
-                              width: double.maxFinite,
-                              child: ListView(
-                                shrinkWrap: true,
-                                children: [
-                                  if (incomeDefault.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 8, 16, 4),
-                                      child: Text(
-                                        'Entradas',
-                                        style: TextStyle(
-                                          color: incomeColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    ...incomeDefault.map(
-                                      (cat) => ListTile(
-                                        leading: CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor:
-                                              incomeColor.withValues(alpha: 0.15),
-                                          child: Icon(
-                                            iconMap[cat.iconName] ??
-                                                Icons.circle,
-                                            color: incomeColor,
-                                            size: 16,
-                                          ),
-                                        ),
-                                        title: Text(cat.name),
-                                        selected: cat.id == state.value,
-                                        selectedTileColor:
-                                            incomeColor.withValues(alpha: 0.08),
-                                        onTap: () =>
-                                            Navigator.of(ctx).pop(cat.id),
-                                      ),
-                                    ),
-                                  ],
-                                  if (incomeCustom.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 8, 16, 4),
-                                      child: Text(
-                                        'Entradas Personalizadas',
-                                        style: TextStyle(
-                                          color: incomeColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    ...incomeCustom.map(
-                                      (cat) => ListTile(
-                                        leading: CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor:
-                                              incomeColor.withValues(alpha: 0.15),
-                                          child: Icon(
-                                            iconMap[cat.iconName] ??
-                                                Icons.circle,
-                                            color: incomeColor,
-                                            size: 16,
-                                          ),
-                                        ),
-                                        title: Text(cat.name),
-                                        selected: cat.id == state.value,
-                                        selectedTileColor:
-                                            incomeColor.withValues(alpha: 0.08),
-                                        onTap: () =>
-                                            Navigator.of(ctx).pop(cat.id),
-                                      ),
-                                    ),
-                                  ],
-                                  if (incomeDefault.isNotEmpty || incomeCustom.isNotEmpty)
-                                    const Divider(height: 1),
-                                  if (expenseDefault.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 8, 16, 4),
-                                      child: Text(
-                                        'Saídas',
-                                        style: TextStyle(
-                                          color: expenseColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    ...expenseDefault.map(
-                                      (cat) => ListTile(
-                                        leading: CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor:
-                                              expenseColor.withValues(alpha: 0.15),
-                                          child: Icon(
-                                            iconMap[cat.iconName] ??
-                                                Icons.circle,
-                                            color: expenseColor,
-                                            size: 16,
-                                          ),
-                                        ),
-                                        title: Text(cat.name),
-                                        selected: cat.id == state.value,
-                                        selectedTileColor:
-                                            expenseColor.withValues(alpha: 0.08),
-                                        onTap: () =>
-                                            Navigator.of(ctx).pop(cat.id),
-                                      ),
-                                    ),
-                                  ],
-                                  if (expenseCustom.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 8, 16, 4),
-                                      child: Text(
-                                        'Saídas Personalizadas',
-                                        style: TextStyle(
-                                          color: expenseColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    ...expenseCustom.map(
-                                      (cat) => ListTile(
-                                        leading: CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor:
-                                              expenseColor.withValues(alpha: 0.15),
-                                          child: Icon(
-                                            iconMap[cat.iconName] ??
-                                                Icons.circle,
-                                            color: expenseColor,
-                                            size: 16,
-                                          ),
-                                        ),
-                                        title: Text(cat.name),
-                                        selected: cat.id == state.value,
-                                        selectedTileColor:
-                                            expenseColor.withValues(alpha: 0.08),
-                                        onTap: () =>
-                                            Navigator.of(ctx).pop(cat.id),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            actions: [
-                              TextButton.icon(
-                                icon: const Icon(FontAwesomeIcons.xmark),
-                                label: const Text('Cancelar'),
-                                onPressed: () => Navigator.of(ctx).pop(),
-                              ),
-                            ],
-                          ),
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                          locale: const Locale('pt', 'BR'),
                         );
-                        if (result != null) {
-                          setState(() => _selectedCategoryId = result);
-                          state.didChange(result);
+                        if (picked != null && picked != _selectedDate) {
+                          setState(() {
+                            _selectedDate = picked;
+                          });
                         }
                       },
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Categoria',
-                          border: const OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(24)),
-                          ),
-                          suffixIcon: const Icon(Icons.arrow_drop_down),
-                          errorText: state.errorText,
-                        ),
-                        child: selectedCat != null
-                            ? Row(
-                                children: [
-                                  Icon(
-                                    iconMap[selectedCat.iconName] ??
-                                        Icons.circle,
-                                    size: 16,
-                                    color: selectedCat.type == 'income'
-                                        ? incomeColor
-                                        : expenseColor,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '${selectedCat.name} '
-                                      '(${selectedCat.type == 'income' ? 'Entrada' : 'Saída'})',
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Text(
-                                'Selecione uma Categoria',
-                                style: TextStyle(
-                                    color: Theme.of(context).hintColor),
-                              ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Botão circular para adicionar categoria personalizada
-              Material(
-                color: Theme.of(context).colorScheme.primary,
-                shape: const CircleBorder(),
-                elevation: 2,
-                child: InkResponse(
-                  onTap: () async {
-                    // Dialog simples para adicionar categoria
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (context) {
-                        String name = '';
-                        String type = 'expense';
-                        String selectedIcon = 'Porquinho';
-                        return AlertDialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          title: const Text('Nova Categoria'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextField(
-                                decoration: const InputDecoration(
-                                  labelText: 'Nome',
-                                ),
-                                onChanged: (v) => name = v,
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                initialValue: type,
-                                decoration: const InputDecoration(
-                                  labelText: 'Tipo',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(24),
-                                    ),
-                                  ),
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'income',
-                                    child: Text('Entrada'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'expense',
-                                    child: Text('Saída'),
-                                  ),
-                                ],
-                                onChanged: (v) => type = v ?? 'expense',
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                initialValue: selectedIcon,
-                                items: iconMap.keys.map((iconKey) {
-                                  return DropdownMenuItem(
-                                    value: iconKey,
-                                    child: Row(
-                                      children: [
-                                        Icon(iconMap[iconKey], size: 20),
-                                        const SizedBox(width: 8),
-                                        Text(iconKey),
+                    ),
+                    const SizedBox(height: 15),
+                    // Categoria
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FormField<String>(
+                            initialValue: _selectedCategoryId,
+                            validator: (value) => value == null
+                                ? 'Selecione uma categoria'
+                                : null,
+                            builder: (state) {
+                              final selectedCat = state.value != null
+                                  ? widget.categories.firstWhere(
+                                      (c) => c.id == state.value,
+                                      orElse: () => widget.categories.first,
+                                    )
+                                  : null;
+                              return GestureDetector(
+                                onTap: () async {
+                                  final result = await showDialog<String>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      title: const Text(
+                                        'Selecione uma Categoria',
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                      content: SizedBox(
+                                        width: double.maxFinite,
+                                        child: ListView(
+                                          shrinkWrap: true,
+                                          children: [
+                                            if (incomeDefault.isNotEmpty) ...[
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      16,
+                                                      8,
+                                                      16,
+                                                      4,
+                                                    ),
+                                                child: Text(
+                                                  'Entradas',
+                                                  style: TextStyle(
+                                                    color: incomeColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              ...incomeDefault.map(
+                                                (cat) => ListTile(
+                                                  leading: CircleAvatar(
+                                                    radius: 16,
+                                                    backgroundColor: incomeColor
+                                                        .withValues(
+                                                          alpha: 0.15,
+                                                        ),
+                                                    child: Icon(
+                                                      iconMap[cat.iconName] ??
+                                                          Icons.circle,
+                                                      color: incomeColor,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  title: Text(cat.name),
+                                                  selected:
+                                                      cat.id == state.value,
+                                                  selectedTileColor: incomeColor
+                                                      .withValues(alpha: 0.08),
+                                                  onTap: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(cat.id),
+                                                ),
+                                              ),
+                                            ],
+                                            if (incomeCustom.isNotEmpty) ...[
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      16,
+                                                      8,
+                                                      16,
+                                                      4,
+                                                    ),
+                                                child: Text(
+                                                  'Entradas Personalizadas',
+                                                  style: TextStyle(
+                                                    color: incomeColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              ...incomeCustom.map(
+                                                (cat) => ListTile(
+                                                  leading: CircleAvatar(
+                                                    radius: 16,
+                                                    backgroundColor: incomeColor
+                                                        .withValues(
+                                                          alpha: 0.15,
+                                                        ),
+                                                    child: Icon(
+                                                      iconMap[cat.iconName] ??
+                                                          Icons.circle,
+                                                      color: incomeColor,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  title: Text(cat.name),
+                                                  selected:
+                                                      cat.id == state.value,
+                                                  selectedTileColor: incomeColor
+                                                      .withValues(alpha: 0.08),
+                                                  onTap: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(cat.id),
+                                                ),
+                                              ),
+                                            ],
+                                            if (incomeDefault.isNotEmpty ||
+                                                incomeCustom.isNotEmpty)
+                                              const Divider(height: 1),
+                                            if (expenseDefault.isNotEmpty) ...[
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      16,
+                                                      8,
+                                                      16,
+                                                      4,
+                                                    ),
+                                                child: Text(
+                                                  'Saídas',
+                                                  style: TextStyle(
+                                                    color: expenseColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              ...expenseDefault.map(
+                                                (cat) => ListTile(
+                                                  leading: CircleAvatar(
+                                                    radius: 16,
+                                                    backgroundColor:
+                                                        expenseColor.withValues(
+                                                          alpha: 0.15,
+                                                        ),
+                                                    child: Icon(
+                                                      iconMap[cat.iconName] ??
+                                                          Icons.circle,
+                                                      color: expenseColor,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  title: Text(cat.name),
+                                                  selected:
+                                                      cat.id == state.value,
+                                                  selectedTileColor:
+                                                      expenseColor.withValues(
+                                                        alpha: 0.08,
+                                                      ),
+                                                  onTap: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(cat.id),
+                                                ),
+                                              ),
+                                            ],
+                                            if (expenseCustom.isNotEmpty) ...[
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      16,
+                                                      8,
+                                                      16,
+                                                      4,
+                                                    ),
+                                                child: Text(
+                                                  'Saídas Personalizadas',
+                                                  style: TextStyle(
+                                                    color: expenseColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              ...expenseCustom.map(
+                                                (cat) => ListTile(
+                                                  leading: CircleAvatar(
+                                                    radius: 16,
+                                                    backgroundColor:
+                                                        expenseColor.withValues(
+                                                          alpha: 0.15,
+                                                        ),
+                                                    child: Icon(
+                                                      iconMap[cat.iconName] ??
+                                                          Icons.circle,
+                                                      color: expenseColor,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  title: Text(cat.name),
+                                                  selected:
+                                                      cat.id == state.value,
+                                                  selectedTileColor:
+                                                      expenseColor.withValues(
+                                                        alpha: 0.08,
+                                                      ),
+                                                  onTap: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(cat.id),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            FontAwesomeIcons.xmark,
+                                          ),
+                                          label: const Text('Cancelar'),
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(),
+                                        ),
                                       ],
                                     ),
                                   );
-                                }).toList(),
-                                onChanged: (v) =>
-                                    selectedIcon = v ?? 'Porquinho',
-                                decoration: const InputDecoration(
-                                  labelText: 'Ícone',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(24),
+                                  if (result != null) {
+                                    setState(
+                                      () => _selectedCategoryId = result,
+                                    );
+                                    state.didChange(result);
+                                  }
+                                },
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'Categoria',
+                                    border: const OutlineInputBorder(
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(24),
+                                      ),
                                     ),
+                                    suffixIcon: const Icon(
+                                      Icons.arrow_drop_down,
+                                    ),
+                                    errorText: state.errorText,
                                   ),
+                                  child: selectedCat != null
+                                      ? Row(
+                                          children: [
+                                            Icon(
+                                              iconMap[selectedCat.iconName] ??
+                                                  Icons.circle,
+                                              size: 16,
+                                              color:
+                                                  selectedCat.type == 'income'
+                                                  ? incomeColor
+                                                  : expenseColor,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '${selectedCat.name} '
+                                                '(${selectedCat.type == 'income' ? 'Entrada' : 'Saída'})',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Text(
+                                          'Selecione uma Categoria',
+                                          style: TextStyle(
+                                            color: Theme.of(context).hintColor,
+                                          ),
+                                        ),
                                 ),
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ],
-                          ),
-                          actions: [
-                            TextButton.icon(
-                              icon: const Icon(FontAwesomeIcons.xmark),
-                              label: const Text('Cancelar'),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(FontAwesomeIcons.floppyDisk),
-                              label: const Text('Adicionar'),
-                              onPressed: () {
-                                if (name.trim().isEmpty) return;
-                                Navigator.of(context).pop({
-                                  'name': name.trim(),
-                                  'type': type,
-                                  'icon': selectedIcon,
-                                });
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    );
-
-                    if (result != null) {
-                      // Criar categoria temporária e selecionar
-                      final newId =
-                          'cat_${DateTime.now().millisecondsSinceEpoch}';
-                      final newCat = Category.fromMap({
-                        'id': newId,
-                        'name': result['name']!,
-                        'type': result['type']!,
-                        'iconName': result['icon'] ?? 'Porquinho',
-                      });
-                      // Adiciona à lista via callback
-                      widget.onCategoryAdded?.call(newCat);
-                      setState(() {
-                        _selectedCategoryId = newCat.id;
-                      });
-                    }
-                  },
-                  customBorder: const CircleBorder(),
-                  radius: 24,
-                  child: const SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Center(
-                      child: Icon(FontAwesomeIcons.plus, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // --- Recorrência ---
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: _isRecurring
-                    ? primaryColor
-                    : Theme.of(context).dividerColor,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                CheckboxListTile(
-                  dense: true,
-                  title: const Text(
-                    'Se repete mensalmente',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  secondary: Icon(
-                    FontAwesomeIcons.arrowsRotate,
-                    color: _isRecurring ? primaryColor : Colors.grey,
-                    size: 18,
-                  ),
-                  value: _isRecurring,
-                  activeColor: primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  onChanged: (v) => setState(() => _isRecurring = v ?? false),
-                ),
-                if (_isRecurring) ...[
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _MonthPickerTile(
-                            label: 'Mês inicial',
-                            value: _recurringStartMonth,
-                            onChanged: (d) => setState(() {
-                              _recurringStartMonth = d;
-                              // Garante que fim >= início
-                              if (_recurringEndMonth.isBefore(d)) {
-                                _recurringEndMonth = DateTime(
-                                  d.year,
-                                  d.month + 1,
-                                );
-                              }
-                            }),
+                              );
+                            },
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MonthPickerTile(
-                            label: 'Mês final',
-                            value: _recurringEndMonth,
-                            minDate: _recurringStartMonth,
-                            onChanged: (d) =>
-                                setState(() => _recurringEndMonth = d),
+                        const SizedBox(width: 8),
+                        // Botão circular para adicionar categoria personalizada
+                        Material(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: const CircleBorder(),
+                          elevation: 2,
+                          child: InkResponse(
+                            onTap: () async {
+                              final result =
+                                  await showDialog<Map<String, String>>(
+                                    context: context,
+                                    builder: (context) {
+                                      String name = '';
+                                      String type = 'expense';
+                                      String selectedIcon = 'Porquinho';
+                                      return AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            24,
+                                          ),
+                                        ),
+                                        title: const Text('Nova Categoria'),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            TextField(
+                                              decoration: const InputDecoration(
+                                                labelText: 'Nome',
+                                              ),
+                                              onChanged: (v) => name = v,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            DropdownButtonFormField<String>(
+                                              initialValue: type,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Tipo',
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.all(
+                                                        Radius.circular(24),
+                                                      ),
+                                                ),
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(24),
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: 'income',
+                                                  child: Text('Entrada'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'expense',
+                                                  child: Text('Saída'),
+                                                ),
+                                              ],
+                                              onChanged: (v) =>
+                                                  type = v ?? 'expense',
+                                            ),
+                                            const SizedBox(height: 8),
+                                            DropdownButtonFormField<String>(
+                                              initialValue: selectedIcon,
+                                              items: iconMap.keys.map((
+                                                iconKey,
+                                              ) {
+                                                return DropdownMenuItem(
+                                                  value: iconKey,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        iconMap[iconKey],
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(iconKey),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (v) => selectedIcon =
+                                                  v ?? 'Porquinho',
+                                              decoration: const InputDecoration(
+                                                labelText: 'Ícone',
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.all(
+                                                        Radius.circular(24),
+                                                      ),
+                                                ),
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(24),
+                                            ),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton.icon(
+                                            icon: const Icon(
+                                              FontAwesomeIcons.xmark,
+                                            ),
+                                            label: const Text('Cancelar'),
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(),
+                                          ),
+                                          ElevatedButton.icon(
+                                            icon: const Icon(
+                                              FontAwesomeIcons.floppyDisk,
+                                            ),
+                                            label: const Text('Adicionar'),
+                                            onPressed: () {
+                                              if (name.trim().isEmpty) return;
+                                              Navigator.of(context).pop({
+                                                'name': name.trim(),
+                                                'type': type,
+                                                'icon': selectedIcon,
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+
+                              if (result != null) {
+                                final newId =
+                                    'cat_${DateTime.now().millisecondsSinceEpoch}';
+                                final newCat = Category.fromMap({
+                                  'id': newId,
+                                  'name': result['name']!,
+                                  'type': result['type']!,
+                                  'iconName': result['icon'] ?? 'Porquinho',
+                                });
+                                widget.onCategoryAdded?.call(newCat);
+                                setState(() {
+                                  _selectedCategoryId = newCat.id;
+                                });
+                              }
+                            },
+                            customBorder: const CircleBorder(),
+                            radius: 24,
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Icon(
+                                  FontAwesomeIcons.plus,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    // ── Comentários (NOVO) ────────────────────────────────────
+                    TextFormField(
+                      initialValue: _comments,
+                      decoration: const InputDecoration(
+                        labelText: 'Comentários',
+                        hintText: 'Informações extras (opcional)',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                      ),
+                      maxLines: 2,
+                      onSaved: (v) => _comments = v ?? '',
+                    ),
+                    const SizedBox(height: 12),
+                    // ── Este valor já foi recebido/pago? ─────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _isPaid
+                              ? Colors.green
+                              : Theme.of(context).dividerColor,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: CheckboxListTile(
+                        dense: true,
+                        title: const Text(
+                          'Este valor já foi recebido/pago?',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        subtitle: Text(
+                          _isPaid
+                              ? 'Sim! Já registrado.'
+                              : 'Não registrado ainda.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _isPaid ? Colors.green : Colors.redAccent,
+                          ),
+                        ),
+                        secondary: Icon(
+                          FontAwesomeIcons.circleCheck,
+                          color: _isPaid ? Colors.green : Colors.grey,
+                          size: 18,
+                        ),
+                        value: _isPaid,
+                        activeColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        onChanged: (v) => setState(() => _isPaid = v ?? false),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // ── Recorrência ───────────────────────────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _isRecurring
+                              ? primaryColor
+                              : Theme.of(context).dividerColor,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          CheckboxListTile(
+                            dense: true,
+                            title: const Text(
+                              'Se repete mensalmente',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            secondary: Icon(
+                              FontAwesomeIcons.arrowsRotate,
+                              color: _isRecurring ? primaryColor : Colors.grey,
+                              size: 18,
+                            ),
+                            value: _isRecurring,
+                            activeColor: primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            onChanged: (v) =>
+                                setState(() => _isRecurring = v ?? false),
+                          ),
+                          if (_isRecurring) ...[
+                            const Divider(height: 1),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _MonthPickerTile(
+                                      label: 'Mês inicial',
+                                      value: _recurringStartMonth,
+                                      onChanged: (d) => setState(() {
+                                        _recurringStartMonth = d;
+                                        if (_recurringEndMonth.isBefore(d)) {
+                                          _recurringEndMonth = DateTime(
+                                            d.year,
+                                            d.month + 1,
+                                          );
+                                        }
+                                      }),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _MonthPickerTile(
+                                      label: 'Mês final',
+                                      value: _recurringEndMonth,
+                                      minDate: _recurringStartMonth,
+                                      onChanged: (d) => setState(
+                                        () => _recurringEndMonth = d,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                  ], // fecha lista de campos
+                ), // fecha Column dos campos
+              ), // fecha SingleChildScrollView
+            ), // fecha Expanded
+            // ── Botões — sobem com o teclado ─────────────────────────────
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.fromLTRB(24, 8, 24, kb > 0 ? kb + 8 : 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(FontAwesomeIcons.xmark),
+                      label: const Text('Cancelar'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(FontAwesomeIcons.floppyDisk),
+                      label: const Text('Salvar'),
+                      onPressed: _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                      ),
+                    ),
                   ),
                 ],
-              ],
-            ),
-          ),
-                  const SizedBox(height: 25),
-                ],
               ),
             ),
-          ),
-
-          // ── Rodapé fixo ──────────────────────────────────────────────────
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(FontAwesomeIcons.xmark),
-                  label: const Text('Cancelar'),
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(FontAwesomeIcons.floppyDisk),
-                  label: const Text('Salvar'),
-                  onPressed: _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+          ], // fecha Column do Form
+        ), // fecha Column
+      ), // fecha Form (body do Scaffold)
+    ); // fecha Scaffold
   }
 }
 
@@ -1889,131 +2162,140 @@ class TransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
-              children: [
-                // Ícone da Categoria
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: transaction.isPaid
-                        ? color.withAlpha(26)
-                        : const Color.fromARGB(255, 255, 200, 140),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    iconMap[category.iconName],
-                    color: transaction.isPaid
-                        ? color
-                        : const Color.fromARGB(255, 200, 100, 0),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Descrição
-                      Text(
-                        transaction.description,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: transaction.isPaid
-                              ? color
-                              : const Color.fromARGB(255, 200, 100, 0),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      // Categoria e Data
-                      Text(
-                        '${category.name} • ${formatDate(transaction.date)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Coluna com valor e toggle
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Valor
-                    Text(
-                      formatCurrency(transaction.amount).replaceAll('-', ''),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                    // Ícone da Categoria
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: transaction.isPaid
+                            ? color.withAlpha(26)
+                            : const Color.fromARGB(255, 255, 200, 140),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        iconMap[category.iconName],
                         color: transaction.isPaid
                             ? color
                             : const Color.fromARGB(255, 200, 100, 0),
+                        size: 28,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    // Toggle Switch para marcar como pago
-                    GestureDetector(
-                      onTap: () =>
-                          onPaidStatusChanged?.call(!transaction.isPaid),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 52,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: transaction.isPaid ? color : Colors.grey[300],
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  (transaction.isPaid
-                                          ? color
-                                          : Colors.grey[300])!
-                                      .withOpacity(0.4),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Descrição
+                          Text(
+                            transaction.description,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: transaction.isPaid
+                                  ? color
+                                  : const Color.fromARGB(255, 200, 100, 0),
                             ),
-                          ],
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          // Categoria e Data
+                          Text(
+                            '${category.name} • ${formatDate(transaction.date)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Coluna com valor e toggle
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Valor
+                        Text(
+                          formatCurrency(
+                            transaction.amount,
+                          ).replaceAll('-', ''),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: transaction.isPaid
+                                ? color
+                                : const Color.fromARGB(255, 200, 100, 0),
+                          ),
                         ),
-                        child: AnimatedAlign(
-                          alignment: transaction.isPaid
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          duration: const Duration(milliseconds: 300),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 2,
-                                    offset: const Offset(0, 1),
+                        const SizedBox(height: 6),
+                        // Toggle Switch para marcar como pago
+                        GestureDetector(
+                          onTap: () =>
+                              onPaidStatusChanged?.call(!transaction.isPaid),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 52,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: transaction.isPaid
+                                  ? color
+                                  : Colors.grey[300],
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      (transaction.isPaid
+                                              ? color
+                                              : Colors.grey[300])!
+                                          .withOpacity(0.4),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: AnimatedAlign(
+                              alignment: transaction.isPaid
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              duration: const Duration(milliseconds: 300),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                ),
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 2,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  transaction.isPaid
-                                      ? Icons.check
-                                      : Icons.close,
-                                  size: 14,
-                                  color: transaction.isPaid
-                                      ? color
-                                      : Colors.grey[400],
+                                  child: Center(
+                                    child: Icon(
+                                      transaction.isPaid
+                                          ? Icons.check
+                                          : Icons.close,
+                                      size: 14,
+                                      color: transaction.isPaid
+                                          ? color
+                                          : Colors.grey[400],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
                 // ── Linha de recorrência (parcelas) ─────────────────
                 if (transaction.isRecurring &&
                     transaction.recurringStartMonth != null &&
@@ -2059,11 +2341,7 @@ class TransactionCard extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.schedule,
-                                size: 14,
-                                color: rowColor,
-                              ),
+                              Icon(Icons.schedule, size: 14, color: rowColor),
                               const SizedBox(width: 6),
                               Text(
                                 transaction.isPaid
@@ -2084,12 +2362,7 @@ class TransactionCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: transaction.isPaid
                                       ? color
-                                      : const Color.fromARGB(
-                                          255,
-                                          200,
-                                          100,
-                                          0,
-                                        ),
+                                      : const Color.fromARGB(255, 200, 100, 0),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -2127,6 +2400,7 @@ class TransactionsScreen extends StatefulWidget {
   final bool canEdit;
   final Function(DateTime)? onDateChanged; // Callback quando a data muda
   final DateTime? focusDate; // Força navegação para este mês quando fornecido
+  final Function(String)? onFilterChanged; // Notifica pai quando filtro muda
 
   const TransactionsScreen({
     super.key,
@@ -2139,6 +2413,7 @@ class TransactionsScreen extends StatefulWidget {
     this.onPaidStatusChanged,
     this.onDateChanged,
     this.focusDate,
+    this.onFilterChanged,
   });
 
   @override
@@ -2179,7 +2454,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Widget _filterChip(String label, String value, Color color, IconData icon) {
     final selected = _activeFilter == value;
     return GestureDetector(
-      onTap: () => setState(() => _activeFilter = value),
+      onTap: () {
+        setState(() => _activeFilter = value);
+        widget.onFilterChanged?.call(value);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2328,11 +2606,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _filterChip('Todos', 'all', Colors.grey.shade600, FontAwesomeIcons.list),
+            _filterChip(
+              'Todos',
+              'all',
+              Colors.grey.shade600,
+              FontAwesomeIcons.list,
+            ),
             const SizedBox(width: 8),
-            _filterChip('Entradas', 'income', incomeColor, FontAwesomeIcons.arrowTrendUp),
+            _filterChip(
+              'Entradas',
+              'income',
+              incomeColor,
+              FontAwesomeIcons.arrowTrendUp,
+            ),
             const SizedBox(width: 8),
-            _filterChip('Saídas', 'expense', expenseColor, FontAwesomeIcons.arrowTrendDown),
+            _filterChip(
+              'Saídas',
+              'expense',
+              expenseColor,
+              FontAwesomeIcons.arrowTrendDown,
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -2842,10 +3135,7 @@ class _ModernPieChartPainter extends CustomPainter {
       )..layout();
       valTp.paint(
         canvas,
-        Offset(
-          center.dx - valTp.width / 2,
-          center.dy + size.width * 0.015,
-        ),
+        Offset(center.dx - valTp.width / 2, center.dy + size.width * 0.015),
       );
     }
   }
@@ -3040,8 +3330,9 @@ class DashboardScreen extends StatelessWidget {
 
     final totalSettled = paidIncome + paidExpense;
     final totalAll = totalIncome + totalExpense;
-    final progress =
-        totalAll > 0 ? (totalSettled / totalAll).clamp(0.0, 1.0) : 0.0;
+    final progress = totalAll > 0
+        ? (totalSettled / totalAll).clamp(0.0, 1.0)
+        : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3173,9 +3464,7 @@ class DashboardScreen extends StatelessWidget {
                         color: incomeColor,
                       ),
                       VerticalDivider(
-                        color: Theme.of(
-                          context,
-                        ).dividerColor.withAlpha(80),
+                        color: Theme.of(context).dividerColor.withAlpha(80),
                         width: 24,
                       ),
                       _balanceStat(
@@ -3186,9 +3475,7 @@ class DashboardScreen extends StatelessWidget {
                         color: expenseColor,
                       ),
                       VerticalDivider(
-                        color: Theme.of(
-                          context,
-                        ).dividerColor.withAlpha(80),
+                        color: Theme.of(context).dividerColor.withAlpha(80),
                         width: 24,
                       ),
                       _balanceStat(
@@ -3450,10 +3737,7 @@ class DashboardScreen extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 14),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(color: subColor, fontSize: 11),
-          ),
+          Text(label, style: TextStyle(color: subColor, fontSize: 11)),
           const SizedBox(height: 2),
           Text(
             text,
@@ -3478,10 +3762,7 @@ class DashboardScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: align,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-        ),
+        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
         const SizedBox(height: 4),
         Text(
           formatCurrency(value),
@@ -3772,8 +4053,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     List<Map<String, dynamic>> sortedIncomeCats,
     List<Map<String, dynamic>> sortedExpenseCats,
   ) {
-    final totalIncome = (pieData.isNotEmpty ? pieData[0]['income'] : 0.0) as double;
-    final totalExpense = (pieData.isNotEmpty ? pieData[0]['expense'] : 0.0) as double;
+    final totalIncome =
+        (pieData.isNotEmpty ? pieData[0]['income'] : 0.0) as double;
+    final totalExpense =
+        (pieData.isNotEmpty ? pieData[0]['expense'] : 0.0) as double;
 
     return Column(
       children: [
@@ -3856,10 +4139,8 @@ class _SyncTile extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _SyncDialog(
-        onSync: onSync,
-        onCheckExisting: onCheckExisting,
-      ),
+      builder: (_) =>
+          _SyncDialog(onSync: onSync, onCheckExisting: onCheckExisting),
     );
   }
 
@@ -3902,7 +4183,11 @@ class _SyncDialogState extends State<_SyncDialog> {
         await _doSync();
       }
     } catch (e) {
-      if (mounted) setState(() { _step = _SyncStep.error; _error = e.toString(); });
+      if (mounted)
+        setState(() {
+          _step = _SyncStep.error;
+          _error = e.toString();
+        });
     }
   }
 
@@ -3912,12 +4197,15 @@ class _SyncDialogState extends State<_SyncDialog> {
       await widget.onSync();
       if (mounted) setState(() => _step = _SyncStep.done);
     } catch (e) {
-      if (mounted) setState(() { _step = _SyncStep.error; _error = e.toString(); });
+      if (mounted)
+        setState(() {
+          _step = _SyncStep.error;
+          _error = e.toString();
+        });
     }
   }
 
-  bool get _busy =>
-      _step == _SyncStep.checking || _step == _SyncStep.syncing;
+  bool get _busy => _step == _SyncStep.checking || _step == _SyncStep.syncing;
 
   @override
   Widget build(BuildContext context) {
@@ -3947,7 +4235,9 @@ class _SyncDialogState extends State<_SyncDialog> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                      onPressed: _busy
+                          ? null
+                          : () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
@@ -3969,18 +4259,18 @@ class _SyncDialogState extends State<_SyncDialog> {
                           _step == _SyncStep.done
                               ? Icons.cloud_done_outlined
                               : _step == _SyncStep.error
-                                  ? Icons.cloud_off_outlined
-                                  : _step == _SyncStep.confirmReplace
-                                      ? Icons.warning_amber_rounded
-                                      : Icons.cloud_sync_outlined,
+                              ? Icons.cloud_off_outlined
+                              : _step == _SyncStep.confirmReplace
+                              ? Icons.warning_amber_rounded
+                              : Icons.cloud_sync_outlined,
                           size: 56,
                           color: _step == _SyncStep.done
                               ? incomeColor
                               : _step == _SyncStep.error
-                                  ? expenseColor
-                                  : _step == _SyncStep.confirmReplace
-                                      ? Colors.orange
-                                      : primaryColor,
+                              ? expenseColor
+                              : _step == _SyncStep.confirmReplace
+                              ? Colors.orange
+                              : primaryColor,
                         ),
                 ),
                 const SizedBox(height: 16),
@@ -3989,12 +4279,15 @@ class _SyncDialogState extends State<_SyncDialog> {
                 Center(
                   child: Text(
                     switch (_step) {
-                      _SyncStep.checking   => 'Verificando dados existentes...',
-                      _SyncStep.syncing    => 'Sincronizando entradas e saídas...',
-                      _SyncStep.done       => 'Dados sincronizados com sucesso!',
-                      _SyncStep.error      => 'Erro ao sincronizar. Tente novamente.',
-                      _SyncStep.confirmReplace => 'Já existem registros salvos na sua conta.\nDeseja substituir os dados existentes?',
-                      _SyncStep.idle       => 'Todos os dados de entradas e saídas serão salvos na sua conta do Firebase.',
+                      _SyncStep.checking => 'Verificando dados existentes...',
+                      _SyncStep.syncing => 'Sincronizando entradas e saídas...',
+                      _SyncStep.done => 'Dados sincronizados com sucesso!',
+                      _SyncStep.error =>
+                        'Erro ao sincronizar. Tente novamente.',
+                      _SyncStep.confirmReplace =>
+                        'Já existem registros salvos na sua conta.\nDeseja substituir os dados existentes?',
+                      _SyncStep.idle =>
+                        'Todos os dados de entradas e saídas serão salvos na sua conta do Firebase.',
                     },
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -4002,10 +4295,10 @@ class _SyncDialogState extends State<_SyncDialog> {
                       color: _step == _SyncStep.done
                           ? incomeColor
                           : _step == _SyncStep.error
-                              ? expenseColor
-                              : _step == _SyncStep.confirmReplace
-                                  ? Colors.orange
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ? expenseColor
+                          : _step == _SyncStep.confirmReplace
+                          ? Colors.orange
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -4073,7 +4366,9 @@ class _SyncDialogState extends State<_SyncDialog> {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                          onPressed: _busy
+                              ? null
+                              : () => Navigator.of(context).pop(),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -5079,7 +5374,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: _SyncTile(
                 onSync: widget.onSyncToFirebase!,
-                onCheckExisting: widget.onCheckExistingData ?? () async => false,
+                onCheckExisting:
+                    widget.onCheckExistingData ?? () async => false,
               ),
             ),
           ],
@@ -5560,10 +5856,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   bool _signupObscure = true;
   bool _signupConfirmObscure = true;
 
-
   // Controllers da tela de login — declarados aqui para sobreviver ao setState
   final TextEditingController _loginEmailController = TextEditingController();
-  final TextEditingController _loginPasswordController = TextEditingController();
+  final TextEditingController _loginPasswordController =
+      TextEditingController();
   int _selectedIndex = 0; // 0: Início, 1: Extrato, 2: Relatórios
   DateTime _dashboardSelectedMonth =
       DateTime.now(); // Mês selecionado no Dashboard
@@ -6197,7 +6493,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     // Evita que o stream vazio do Firestore apague dados salvos no device.
     // Usa try-catch para que uma falha no sync não bloqueie a inicialização dos streams.
     try {
-      final hasFirebaseData = await _firestoreService.hasExistingTransactions(uid);
+      final hasFirebaseData = await _firestoreService.hasExistingTransactions(
+        uid,
+      );
       if (!hasFirebaseData && _transactions.isNotEmpty) {
         await _syncToFirebase();
       }
@@ -6210,14 +6508,17 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       await _firestoreService.seedDefaultCategories(uid);
     } catch (_) {}
 
+    // Migra ícones de categorias existentes para os nomes corretos
+    try {
+      await _firestoreService.migrateDefaultCategoryIcons(uid);
+    } catch (_) {}
+
     // ── Categorias ────────────────────────────────────────────────────
     _catSub = _firestoreService.categoriesAppStream(uid).listen(
       (rawList) {
         if (!mounted) return;
         try {
-          final cats = rawList
-              .map((m) => Category.fromMap(m))
-              .toList();
+          final cats = rawList.map((m) => Category.fromMap(m)).toList();
           setState(() {
             if (cats.isNotEmpty) _categories = cats;
           });
@@ -6231,9 +6532,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       (rawList) {
         if (!mounted) return;
         try {
-          final txs = rawList
-              .map((m) => Transaction.fromMap(m))
-              .toList();
+          final txs = rawList.map((m) => Transaction.fromMap(m)).toList();
           setState(() => _transactions = txs);
           _saveCachedData(); // mantém cache local sempre atualizado
         } catch (_) {} // mantém dados do cache em caso de erro de parsing
@@ -6867,7 +7166,7 @@ Finanças App — Controle suas finanças com simplicidade.
         'id': 'fallback',
         'name': 'Sem Categoria',
         'type': 'expense',
-        'iconName': 'DollarSign',
+        'iconName': 'Cifrão',
       }),
     );
   }
@@ -6891,7 +7190,8 @@ Finanças App — Controle suas finanças com simplicidade.
       'amount': transaction.amount,
       'categoryId': transaction.categoryId,
       'date': transaction.date.toIso8601String().substring(0, 10),
-      'isPaid': false,
+      'isPaid': transaction.isPaid,
+      'comments': transaction.comments,
       'isRecurring': transaction.isRecurring,
       'recurringStartMonth': transaction.recurringStartMonth,
       'recurringEndMonth': transaction.recurringEndMonth,
@@ -7667,7 +7967,8 @@ Finanças App — Controle suas finanças com simplicidade.
                           size: 18,
                         ),
                         onPressed: () => setState(
-                            () => _signupConfirmObscure = !_signupConfirmObscure),
+                          () => _signupConfirmObscure = !_signupConfirmObscure,
+                        ),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -7875,7 +8176,8 @@ Finanças App — Controle suas finanças com simplicidade.
                     showCenteredAlertModal(
                       context: context,
                       title: 'E-mail enviado!',
-                      message: 'Verifique sua caixa de entrada e clique no link para redefinir sua senha.',
+                      message:
+                          'Verifique sua caixa de entrada e clique no link para redefinir sua senha.',
                       icon: FontAwesomeIcons.circleCheck,
                       iconColor: successColor,
                     );
@@ -7931,59 +8233,22 @@ Finanças App — Controle suas finanças com simplicidade.
     Transaction? transactionToEdit,
     String? defaultFilterType,
   ]) {
-    Widget buildDialogContent(BuildContext ctx) {
-      final mq = MediaQuery.of(ctx);
-      final keyboard = mq.viewInsets.bottom;
-      final screen   = mq.size.height;
-      final top      = mq.padding.top;
-      // Altura máxima disponível acima do teclado, descontando
-      // o espaço da status bar e os insets verticais do Dialog (24+24).
-      final maxH = (screen - keyboard - top - 48).clamp(200.0, double.infinity);
-
-      return AnimatedPadding(
-        padding: EdgeInsets.only(bottom: keyboard),
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
-        child: Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 24,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              constraints: BoxConstraints(
-                maxWidth: 400,
-                minWidth: 300,
-                maxHeight: maxH,
-              ),
-              child: NewTransactionForm(
-                categories: _categories,
-                addTransaction: _addTransaction,
-                updateTransaction: _updateTransaction,
-                transactionToEdit: transactionToEdit,
-                defaultFilterType: defaultFilterType,
-                onCategoryAdded: (Category cat) {
-                  _categories.add(cat);
-                  setState(() {});
-                  _saveCachedData();
-                },
-              ),
-            ),
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewTransactionForm(
+          categories: _categories,
+          addTransaction: _addTransaction,
+          updateTransaction: _updateTransaction,
+          transactionToEdit: transactionToEdit,
+          defaultFilterType: defaultFilterType,
+          userSalary: _currentUser?.salary ?? 0.0,
+          onCategoryAdded: (Category cat) {
+            _categories.add(cat);
+            setState(() {});
+            _saveCachedData();
+          },
         ),
-      );
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: buildDialogContent,
+      ),
     );
   }
 
@@ -8041,10 +8306,10 @@ Finanças App — Controle suas finanças com simplicidade.
       ),
       body: _isLoading
           ? _currentUser != null
-              ? _buildWelcomeBackScreen()
-              : const Center(
-                  child: CircularProgressIndicator(color: primaryColor),
-                )
+                ? _buildWelcomeBackScreen()
+                : const Center(
+                    child: CircularProgressIndicator(color: primaryColor),
+                  )
           : _isGuest
           ? _buildGuestScreen()
           : IndexedStack(
@@ -8054,9 +8319,7 @@ Finanças App — Controle suas finanças com simplicidade.
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: DashboardScreen(
-                    summary: _calculateSummaryForMonth(
-                      _dashboardSelectedMonth,
-                    ),
+                    summary: _calculateSummaryForMonth(_dashboardSelectedMonth),
                     selectedMonth: _dashboardSelectedMonth,
                     onMonthChanged: _updateDashboardMonth,
                     onNavigateToExtract: (filterType) => setState(() {
@@ -8078,6 +8341,8 @@ Finanças App — Controle suas finanças com simplicidade.
                     onDateChanged: _updateDashboardMonth,
                     onPaidStatusChanged: _togglePaidStatus,
                     focusDate: _extractFocusDate,
+                    onFilterChanged: (f) =>
+                        setState(() => _extractFilterType = f),
                   ),
                 ),
                 // Aba 2: Relatórios
@@ -8140,9 +8405,11 @@ Finanças App — Controle suas finanças com simplicidade.
               _selectedIndex !=
                   3 // Oculta o FAB na aba "Perfil" e "Todos"
           ? FloatingActionButton(
-              // Passa o tipo padrão de categoria baseado na aba selecionada
               onPressed: () {
-                _showNewTransactionModal();
+                final filterType = _extractFilterType == 'all'
+                    ? null
+                    : _extractFilterType;
+                _showNewTransactionModal(null, filterType);
               },
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,

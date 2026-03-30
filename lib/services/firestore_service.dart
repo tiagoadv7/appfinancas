@@ -265,6 +265,59 @@ class FirestoreService {
     await _catCol(uid).doc(id).set(data, SetOptions(merge: true));
   }
 
+  // ─── Migração de ícones ───────────────────────────────────────────────────
+
+  /// Corrige iconName de categorias existentes que têm nomes inválidos
+  /// (não presentes no iconMap do app). Executado a cada login.
+  Future<void> migrateDefaultCategoryIcons(String uid) async {
+    const correctIconByName = {
+      'Alimentação':   'Talheres',
+      'Transporte':    'Carro',
+      'Moradia':       'Casa',
+      'Saúde':         'Saude',
+      'Educação':      'Escola',
+      'Lazer':         'Controle',
+      'Compras':       'CarrinhoCompras',
+      'Assinaturas':   'CartaoCredito',
+      'Odonto':        'Odonto',
+      'Outros':        'Cifrão',
+      'Salário':       'Maleta',
+      'Freelancer':    'Computador',
+      'Investimentos': 'SetaCimaTendencia',
+      'Presente':      'Presente',
+      'Reembolso':     'Recibo',
+    };
+    const validIconNames = {
+      'Painel','SetaCima','SetaBaixo','Cifrão','CarrinhoCompras','Casa','Carro',
+      'Talheres','Maleta','Escudo','Porquinho','Engrenagem','Usuarios','Lixeira',
+      'Mais','X','ListaVerificacao','ArquivoLinhas','GraficoPizza','CartaoCredito',
+      'EdificioColunas','BombaGasolina','Escola','Filme','Futebol','Aviao','Hotel',
+      'Telefone','Wifi','Cachorro','Criancas','Halter','Saude','Odonto','Musica',
+      'Paleta','Camera','Computador','Fones','Controle','GuardaSol','Talheres2',
+      'Xicara','CopoMartini','BolsaCompras','Presente','Recibo','Dinheiro',
+      'Porquinho2','SetaCimaTendencia','SetaBaixoTendencia','Calendario',
+    };
+
+    final snap = await _catCol(uid).get();
+    if (snap.docs.isEmpty) return;
+    final batch = _db.batch();
+    var needsUpdate = false;
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final name = data['name']?.toString() ?? '';
+      final currentIcon = (data['iconName'] ?? data['icon'] ?? '').toString();
+      if (!validIconNames.contains(currentIcon) &&
+          correctIconByName.containsKey(name)) {
+        batch.update(doc.reference, {
+          'icon':     correctIconByName[name],
+          'iconName': correctIconByName[name],
+        });
+        needsUpdate = true;
+      }
+    }
+    if (needsUpdate) await batch.commit();
+  }
+
   // ─── Seed de categorias padrão ────────────────────────────────────────────
 
   /// Cria as categorias padrão para um novo usuário, somente se ainda não
