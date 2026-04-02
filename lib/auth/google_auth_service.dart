@@ -16,6 +16,12 @@ class GoogleAuthService implements AuthService {
   User? get currentUser => _user;
 
   @override
+  Future<User?> signInWithBiometric(String email) async {
+    // GoogleAuthService não gerencia sessões locais — delega para FirebaseAuthService
+    throw UnimplementedError('Use FirebaseAuthService para login biométrico');
+  }
+
+  @override
   Future<User?> signIn({String? email, String? password}) async {
     try {
       final account = await _googleSignIn.signIn();
@@ -32,6 +38,32 @@ class GoogleAuthService implements AuthService {
       // Propaga a exceção para o chamador lidar
       rethrow;
     }
+  }
+
+  @override
+  Future<User?> signInWithGoogle() => signIn();
+
+  @override
+  Future<User?> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    // Google Sign-In não suporta criação via email/senha — delega ao mock
+    throw UnimplementedError('Use MockAuthService para cadastro com email/senha');
+  }
+
+  @override
+  Future<bool> resetPassword({required String email}) async {
+    throw UnimplementedError('Use MockAuthService para redefinição de senha');
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    throw UnimplementedError('Use FirebaseAuthService para troca de senha');
   }
 
   @override

@@ -1,6 +1,5 @@
 name: appfinancas
-description: "A new Flutter project."
-# The following line prevents the package from being accidentally published to
+description: "Gerenciador de finanças pessoais para controle de gastos e receitas, com suporte a múltiplas contas, categorias personalizadas, gráficos de análise financeira."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
@@ -16,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 3.2.3+2
 
 environment:
   sdk: ^3.10.0
@@ -35,28 +34,58 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # Font Awesome Icons
   font_awesome_flutter: ^10.7.0
-  
+
   # Google Sign-In
   google_sign_in: ^6.1.4
-  
+
   # Estado compartilhado
   provider: ^6.0.0
-  
+
   # SVG support for rendering app logo
   flutter_svg: ^2.0.7
 
   # Para abrir URLs e e-mails
   url_launcher: ^6.2.6
-  
+
+  # Biometria / senha do dispositivo
+  local_auth: ^2.3.0
+
+  # Lottie animations
+  lottie: ^3.1.0
+
   # Internacionalização - para suporte a PT-BR
   intl: ^0.20.0
-  
+
   # Localizações do Flutter para Material Design
   flutter_localizations:
     sdk: flutter
+
+  # ─── Firebase ───────────────────────────────────────────────────────────────
+  # Core Firebase SDK (obrigatório para todos os outros pacotes Firebase)
+  firebase_core: ^3.6.0
+
+  # Firebase Authentication (email/senha + Google)
+  firebase_auth: ^5.3.1
+
+  # Cloud Firestore (banco de dados NoSQL em tempo real)
+  cloud_firestore: ^5.4.4
+
+  # SHA-256 hashing para senhas antes de enviar ao Firebase
+  crypto: ^3.0.3
+
+  # ─── Atualização automática ─────────────────────────────────────────────────
+  # Versão atual do app (para comparar com releases do GitHub)
+  package_info_plus: ^8.1.0
+
+  # HTTP para consultar a API do GitHub
+  http: ^1.2.2
+
+  # Deep links — abre o app a partir de URLs (ex: reset de senha do Firebase)
+  app_links: ^6.3.0
+
 
 dev_dependencies:
   flutter_test:
@@ -88,29 +117,4 @@ flutter:
   # App assets
   assets:
     - assets/images/
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+    - assets/animations/

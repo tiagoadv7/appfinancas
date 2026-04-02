@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(dart pub:*)",
+      "Bash(flutter run:*)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); clients=d.get\\(''''client'''',[]\\); [print\\(c.get\\(''''client_info'''',{}\\).get\\(''''android_client_info'''',{}\\)\\) for c in clients]\")",
+      "Bash(find 'c:/Users/Tiago Neves/Documents/GitHub/appfinancas' -path *dart_tool* -name *registrant* -type f)",
+      "Bash(find android/app/src -type f -name *.xml -o -name *.json -o -name *.kt -o -name *.java)",
+      "Bash(flutter test:*)",
+      "Bash(find 'c:\\\\Users\\\\Tiago Neves\\\\Documents\\\\GitHub\\\\appfinancas/src' -type f -name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx)",
+      "Bash(find 'c:\\\\Users\\\\Tiago Neves\\\\Documents\\\\GitHub\\\\appfinancas/android' -type f \\\\\\(-name *.kt -o -name *.java \\\\\\))",
+      "Bash(find 'c:/Users/Tiago Neves/Documents/GitHub/appfinancas' -name *.json -o -name *.xml -o -name *.properties -o -name *.env -o -name .env*)",
+      "Bash(grep -r \"AIza\\\\|api_key\\\\|apiKey\\\\|API_KEY\" 'c:/Users/Tiago Neves/Documents/GitHub/appfinancas' --include=*.dart --include=*.gradle --include=*.xml --include=*.properties -l)",
+      "Bash(xargs grep:*)",
+      "Bash(cd c:/Users/Tiago Neves/Documents/GitHub/appfinancas)"
+    ]
+  }
+}

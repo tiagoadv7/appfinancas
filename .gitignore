@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Scripts utilitários locais
+generate_icons.py
+
+# Firebase / Google — chaves e configurações sensíveis
+# Copie os arquivos .example correspondentes e preencha com seus valores.
+android/app/google-services.json
+lib/firebase_options.dart

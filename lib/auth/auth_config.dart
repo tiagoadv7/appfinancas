@@ -1,8 +1,14 @@
-// Alterne para `true` para usar o fluxo de autenticação de teste (mock).
-// Defina como `false` para usar o login real do Google.
-const bool useMockAuth = true;
+import 'package:flutter/foundation.dart' show kDebugMode;
 
-// IMPORTANTE: Adicione aqui o Client ID do OAuth 2.0 para "Aplicativo da Web"
-// obtido no Google Cloud Console. Necessário para o login no Chrome.
+// Em debug (dev), usa MockAuthService com login local.
+// Em release (produção), usa FirebaseAuthService.
+bool get useMockAuth => kDebugMode;
+
+// Credenciais de teste — apenas ambiente de desenvolvimento.
+const String devTestEmail = 'dev@appfinancas.com';
+const String devTestPassword = 'dev123';
+
+// Client ID OAuth 2.0 para Web (Google Sign-In no Chrome/Web).
+// Obtenha em: Google Cloud Console → Credenciais → OAuth 2.0 → Web
 // Ex: 'xxxx-yyyy.apps.googleusercontent.com'
 const String? googleSignInWebAppClientId = null;

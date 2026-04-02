@@ -32,6 +32,14 @@
 
   <title>Finanças</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    NOTA: NÃO inicialize o Firebase aqui via JS.
+    O FlutterFire (firebase_core Dart) já inclui e inicializa o Firebase JS SDK
+    internamente quando você chama Firebase.initializeApp() no código Dart.
+    Ter duas inicializações (JS manual + Dart) causa conflito de versões e o erro:
+      "FirebaseException is not a subtype of JavaScriptObject"
+  -->
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
