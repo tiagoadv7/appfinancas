@@ -20,19 +20,7 @@ import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
-
-/// Callback top-level exigido pelo WorkManager (roda em isolate separado).
-@pragma('vm:entry-point')
-void _workManagerDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task == UpdateService.bgTaskName) {
-      await UpdateService.runBackgroundCheck();
-    }
-    return true;
-  });
-}
 
 // ===================================================================
 // 1. CONSTANTES, MODELOS E UTILITÁRIOS (Unificados no arquivo principal)
@@ -5628,23 +5616,6 @@ void main() async {
   if (!useMockAuth) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
-  // Inicializar notificações locais (usadas pela verificação de atualizações)
-  await UpdateService.initNotifications();
-  // Inicializar WorkManager para verificação noturna de atualizações
-  if (!kIsWeb) {
-    await Workmanager().initialize(
-      _workManagerDispatcher,
-      isInDebugMode: false,
-    );
-    await Workmanager().registerPeriodicTask(
-      UpdateService.bgTaskId,
-      UpdateService.bgTaskName,
-      frequency: const Duration(hours: 24),
-      initialDelay: UpdateService.delayUntilNight(),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
-      constraints: Constraints(networkType: NetworkType.connected),
     );
   }
   runApp(const MyApp());

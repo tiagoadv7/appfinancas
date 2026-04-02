@@ -4,35 +4,18 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class UpdateService {
   static const String _repoOwner = 'tiagoadv7';
   static const String _repoName = 'appfinancas';
   static const String _lastCheckKey = 'last_update_check';
-  static const String bgTaskId = 'update_check_task';
-  static const String bgTaskName = 'checkForUpdate';
 
-  static final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
-
-  /// Inicializa o plugin de notificações locais.
-  /// Deve ser chamado em main() antes de runApp().
-  static Future<void> initNotifications() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    const settings =
-        InitializationSettings(android: androidSettings, iOS: iosSettings);
-    await _notifications.initialize(settings);
-  }
-
-  /// Consulta o GitHub e retorna os dados da nova versão, ou null se já está atualizado.
+  /// Consulta o GitHub e retorna os dados da nova versão, ou null se já está
+  /// atualizado ou se a última checagem foi há menos de 20 horas.
   static Future<UpdateInfo?> checkForUpdate() async {
+    // Throttle: verifica no máximo uma vez a cada 20 horas
+    if (!await _shouldCheck()) return null;
+
     try {
       final response = await http
           .get(
@@ -42,6 +25,8 @@ class UpdateService {
             headers: {'Accept': 'application/vnd.github.v3+json'},
           )
           .timeout(const Duration(seconds: 10));
+
+      await _saveLastCheckTime();
 
       if (response.statusCode != 200) return null;
 
@@ -54,11 +39,7 @@ class UpdateService {
 
       final packageInfo = await PackageInfo.fromPlatform();
       if (_isNewer(tagName, packageInfo.version)) {
-        return UpdateInfo(
-          version: tagName,
-          url: releaseUrl,
-          notes: releaseNotes,
-        );
+        return UpdateInfo(version: tagName, url: releaseUrl, notes: releaseNotes);
       }
       return null;
     } catch (_) {
@@ -66,17 +47,7 @@ class UpdateService {
     }
   }
 
-  /// Tarefa executada pelo WorkManager em background toda noite.
-  static Future<void> runBackgroundCheck() async {
-    await initNotifications();
-    final update = await checkForUpdate();
-    if (update != null) {
-      await _showNotification(update.version);
-    }
-    await _saveLastCheckTime();
-  }
-
-  /// Exibe o diálogo de atualização na tela (foreground).
+  /// Exibe o diálogo de atualização na tela.
   static Future<void> showUpdateDialog(
     BuildContext context,
     UpdateInfo update,
@@ -138,25 +109,18 @@ class UpdateService {
   // Helpers internos
   // ──────────────────────────────────────────────────────────────────────────
 
-  static Future<void> _showNotification(String version) async {
-    const androidDetails = AndroidNotificationDetails(
-      'financas_update_channel',
-      'Atualizações do App',
-      channelDescription: 'Notificações de novas versões do Finanças App',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const details =
-        NotificationDetails(android: androidDetails, iOS: iosDetails);
+  static Future<bool> _shouldCheck() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_lastCheckKey);
+    if (raw == null) return true;
+    final last = DateTime.tryParse(raw);
+    if (last == null) return true;
+    return DateTime.now().difference(last).inHours >= 20;
+  }
 
-    await _notifications.show(
-      0,
-      'Finanças App — Atualização disponível',
-      'Versão $version disponível. Toque para baixar.',
-      details,
-    );
+  static Future<void> _saveLastCheckTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastCheckKey, DateTime.now().toIso8601String());
   }
 
   static bool _isNewer(String remote, String current) {
@@ -169,19 +133,6 @@ class UpdateService {
       if (rv < cv) return false;
     }
     return false;
-  }
-
-  static Future<void> _saveLastCheckTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastCheckKey, DateTime.now().toIso8601String());
-  }
-
-  /// Calcula o delay até as 02:00 da madrugada (horário local).
-  static Duration delayUntilNight() {
-    final now = DateTime.now();
-    var next = DateTime(now.year, now.month, now.day, 2, 0);
-    if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
-    return next.difference(now);
   }
 }
 

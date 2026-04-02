@@ -83,11 +83,6 @@ dependencies:
   # HTTP para consultar a API do GitHub
   http: ^1.2.2
 
-  # Background tasks — verifica atualizações toda noite
-  workmanager: ^0.5.2
-
-  # Notificações locais — avisa sobre nova versão mesmo com app em background
-  flutter_local_notifications: ^17.2.4
 
 dev_dependencies:
   flutter_test:
