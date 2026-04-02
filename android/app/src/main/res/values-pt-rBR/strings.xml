@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Textos do diálogo biométrico nativo (local_auth) em Português Brasileiro -->
+    <string name="biometric_hint">Verificar identidade</string>
+    <string name="biometric_not_recognized">Não reconhecido. Tente novamente.</string>
+    <string name="biometric_success">Autenticado com sucesso.</string>
+    <string name="biometric_error_hw_unavailable">O hardware biométrico está indisponível.</string>
+    <string name="biometric_error_none_enrolled">Nenhuma biometria cadastrada.</string>
+    <string name="biometric_error_no_hardware">O dispositivo não possui sensor biométrico.</string>
+    <string name="button_label_negative">Cancelar</string>
+    <string name="button_label_positive">OK</string>
+    <string name="fingerprint_hint">Toque no sensor</string>
+    <string name="fingerprint_not_recognized">Impressão digital não reconhecida. Tente novamente.</string>
+    <string name="fingerprint_success">Impressão digital reconhecida.</string>
+    <string name="go_to_settings">Acessar configurações</string>
+    <string name="setting_description">A autenticação biométrica não está configurada. Acesse \'Configurações > Segurança\' para cadastrar sua biometria.</string>
+    <string name="no_biometrics_available">Nenhuma biometria disponível.</string>
+    <string name="cancel">Cancelar</string>
+    <string name="device_credentials_pin_hint">Digite seu PIN</string>
+    <string name="device_credentials_password_hint">Digite sua senha</string>
+    <string name="device_credentials_pattern_hint">Desenhe o padrão</string>
+</resources>

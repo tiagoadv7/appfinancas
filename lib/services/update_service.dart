@@ -8,22 +8,21 @@ import 'package:url_launcher/url_launcher.dart';
 class UpdateService {
   static const String _repoOwner = 'tiagoadv7';
   static const String _repoName = 'appfinancas';
+  static const String _branch = 'main';
   static const String _lastCheckKey = 'last_update_check';
 
-  /// Consulta o GitHub e retorna os dados da nova versão, ou null se já está
-  /// atualizado ou se a última checagem foi há menos de 20 horas.
+  /// URL do version.json no repositório GitHub (raw content).
+  static String get _versionUrl =>
+      'https://raw.githubusercontent.com/$_repoOwner/$_repoName/$_branch/version.json';
+
+  /// Consulta o version.json do repositório e retorna dados da nova versão,
+  /// ou null se já está atualizado ou checagem foi há menos de 20 horas.
   static Future<UpdateInfo?> checkForUpdate() async {
-    // Throttle: verifica no máximo uma vez a cada 20 horas
     if (!await _shouldCheck()) return null;
 
     try {
       final response = await http
-          .get(
-            Uri.parse(
-              'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
-            ),
-            headers: {'Accept': 'application/vnd.github.v3+json'},
-          )
+          .get(Uri.parse(_versionUrl))
           .timeout(const Duration(seconds: 10));
 
       await _saveLastCheckTime();
@@ -31,15 +30,19 @@ class UpdateService {
       if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final tagName = (data['tag_name'] as String? ?? '').replaceFirst('v', '');
-      final releaseUrl = data['html_url'] as String? ?? '';
-      final releaseNotes = data['body'] as String? ?? '';
+      final remoteVersion = data['version'] as String? ?? '';
+      final releaseUrl = data['url'] as String? ?? '';
+      final releaseNotes = data['notes'] as String? ?? '';
 
-      if (tagName.isEmpty) return null;
+      if (remoteVersion.isEmpty) return null;
 
       final packageInfo = await PackageInfo.fromPlatform();
-      if (_isNewer(tagName, packageInfo.version)) {
-        return UpdateInfo(version: tagName, url: releaseUrl, notes: releaseNotes);
+      if (_isNewer(remoteVersion, packageInfo.version)) {
+        return UpdateInfo(
+          version: remoteVersion,
+          url: releaseUrl,
+          notes: releaseNotes,
+        );
       }
       return null;
     } catch (_) {

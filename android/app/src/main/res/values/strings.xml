@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default locale strings (English fallback) for local_auth biometric dialog -->
+    <string name="biometric_hint">Verify identity</string>
+    <string name="biometric_not_recognized">Not recognized. Try again.</string>
+    <string name="biometric_success">Authenticated successfully.</string>
+    <string name="biometric_error_hw_unavailable">Biometric hardware is unavailable.</string>
+    <string name="biometric_error_none_enrolled">No biometrics enrolled.</string>
+    <string name="biometric_error_no_hardware">No biometric hardware found.</string>
+    <string name="button_label_negative">Cancel</string>
+    <string name="button_label_positive">OK</string>
+    <string name="fingerprint_hint">Touch sensor</string>
+    <string name="fingerprint_not_recognized">Fingerprint not recognized. Try again.</string>
+    <string name="fingerprint_success">Fingerprint recognized.</string>
+    <string name="go_to_settings">Go to settings</string>
+    <string name="setting_description">Biometric authentication is not set up. Go to \'Settings &gt; Security\' to enroll your biometrics.</string>
+    <string name="no_biometrics_available">No biometrics available.</string>
+    <string name="cancel">Cancel</string>
+    <string name="device_credentials_pin_hint">Enter your PIN</string>
+    <string name="device_credentials_password_hint">Enter your password</string>
+    <string name="device_credentials_pattern_hint">Draw your pattern</string>
+</resources>

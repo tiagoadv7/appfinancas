@@ -147,6 +147,14 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<void> confirmPasswordReset({
+    required String oobCode,
+    required String newPassword,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  @override
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

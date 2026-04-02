@@ -83,6 +83,9 @@ dependencies:
   # HTTP para consultar a API do GitHub
   http: ^1.2.2
 
+  # Deep links — abre o app a partir de URLs (ex: reset de senha do Firebase)
+  app_links: ^6.3.0
+
 
 dev_dependencies:
   flutter_test:

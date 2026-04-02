@@ -19,6 +19,7 @@ import 'services/update_service.dart';
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:lottie/lottie.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -2575,7 +2576,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header Card
         Card(
@@ -2731,37 +2732,47 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         if (filteredTransactions.isEmpty)
           _buildEmptyState(context)
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredTransactions.length,
-            itemBuilder: (context, index) {
-              final t = filteredTransactions[index];
-              final cat = widget.getCategoryById(t.categoryId);
-              final isIncome = cat.type == 'income';
-              final color = isIncome ? incomeColor : expenseColor;
+          Flexible(
+            child: ClipPath(
+              clipper: const _InvertedCornerClipper(radius: 24),
+              child: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  itemCount: filteredTransactions.length,
+                  itemBuilder: (context, index) {
+                    final t = filteredTransactions[index];
+                    final cat = widget.getCategoryById(t.categoryId);
+                    final isIncome = cat.type == 'income';
+                    final color = isIncome ? incomeColor : expenseColor;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: TransactionCard(
-                  transaction: t,
-                  category: cat,
-                  color: color,
-                  // Permite editar/deletar apenas se tiver permissão
-                  onEdit: widget.canEdit
-                      ? () => widget.editTransaction(t)
-                      : null,
-                  onDelete: widget.canEdit
-                      ? () => widget.deleteTransaction(t.id)
-                      : null,
-                  onPaidStatusChanged: widget.onPaidStatusChanged != null
-                      ? (isPaid) => widget.onPaidStatusChanged!(t.id, isPaid)
-                      : null,
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: TransactionCard(
+                        transaction: t,
+                        category: cat,
+                        color: color,
+                        // Permite editar/deletar apenas se tiver permissão
+                        onEdit: widget.canEdit
+                            ? () => widget.editTransaction(t)
+                            : null,
+                        onDelete: widget.canEdit
+                            ? () => widget.deleteTransaction(t.id)
+                            : null,
+                        onPaidStatusChanged: widget.onPaidStatusChanged != null
+                            ? (isPaid) =>
+                                widget.onPaidStatusChanged!(t.id, isPaid)
+                            : null,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ),
           ),
-        const SizedBox(height: 80), // Espaço para o FAB
       ],
     );
   }
@@ -5880,6 +5891,9 @@ class _MainAppState extends State<MainApp>
   // Na web inicia bloqueado para permitir preview da animação de desbloqueio
   // Inicia bloqueado na web (preview) — no dispositivo é definido após detectar biometria
   bool _isLocked = kIsWeb;
+  bool _showUnlockAnimation = false;
+  bool _isAuthenticating = false;
+  late final AnimationController _unlockAnimController;
 
 
   // Visibilidade de senha nas telas de autenticação
@@ -5916,6 +5930,7 @@ class _MainAppState extends State<MainApp>
   @override
   void initState() {
     super.initState();
+    _unlockAnimController = AnimationController(vsync: this);
     WidgetsBinding.instance.addObserver(this);
     // Configure auth service: mock em debug, Firebase em produção
     _authService = useMockAuth ? MockAuthService() : FirebaseAuthService();
@@ -5947,6 +5962,7 @@ class _MainAppState extends State<MainApp>
 
   @override
   void dispose() {
+    _unlockAnimController.dispose();
     _txSub?.cancel();
     _catSub?.cancel();
     _loginEmailController.dispose();
@@ -5975,6 +5991,9 @@ class _MainAppState extends State<MainApp>
     // Sem bloqueio na Web — biometria não se aplica
     if (kIsWeb) return;
 
+    // Ignora mudanças de ciclo causadas pelo próprio diálogo biométrico
+    if (_isAuthenticating) return;
+
     if (state == AppLifecycleState.paused && !_isGuest) {
       setState(() => _isLocked = true);
     }
@@ -5985,7 +6004,7 @@ class _MainAppState extends State<MainApp>
   }
 
   Future<void> _unlockApp() async {
-    if (!mounted) return;
+    if (!mounted || _isAuthenticating) return;
 
     bool authenticated = false;
 
@@ -5998,9 +6017,9 @@ class _MainAppState extends State<MainApp>
         if (!isSupported) {
           authenticated = true;
         } else {
+          setState(() => _isAuthenticating = true);
           authenticated = await auth.authenticate(
-            localizedReason:
-                'Use sua digital para acessar o Finanças App',
+            localizedReason: 'Use sua digital ou PIN para acessar o Finanças App',
             options: const AuthenticationOptions(
               stickyAuth: true,
               biometricOnly: false,
@@ -6008,12 +6027,25 @@ class _MainAppState extends State<MainApp>
           );
         }
       } catch (_) {
-        authenticated = true;
+        // Mantém authenticated = false; usuário permanece na tela de bloqueio
+        if (mounted) setState(() => _isAuthenticating = false);
+        return;
       }
     }
 
     if (!mounted) return;
-    if (authenticated) setState(() => _isLocked = false);
+    if (authenticated) {
+      // Desbloqueia IMEDIATAMENTE para que nenhum evento resumed
+      // consiga disparar _unlockApp() uma segunda vez
+      _unlockAnimController.reset();
+      setState(() {
+        _isLocked = false;
+        _isAuthenticating = false;
+        _showUnlockAnimation = true;
+      });
+    } else {
+      if (mounted) setState(() => _isAuthenticating = false);
+    }
   }
 
   Widget _buildWelcomeBackScreen() {
@@ -6107,7 +6139,8 @@ class _MainAppState extends State<MainApp>
             ),
           ),
 
-          // ── Painel modal inferior (estilo app bancário) ───────────────────
+          // ── Painel modal inferior — oculto durante autenticação ──────────
+          if (!_isAuthenticating)
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -6162,21 +6195,24 @@ class _MainAppState extends State<MainApp>
                       const SizedBox(height: 32),
 
                       // ── Ícone digital centralizado ─────────────────────
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: primaryColor.withValues(alpha: 0.12),
-                          border: Border.all(
-                            color: primaryColor.withValues(alpha: 0.35),
-                            width: 1.5,
+                      GestureDetector(
+                        onTap: _unlockApp,
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: primaryColor.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: primaryColor.withValues(alpha: 0.35),
+                              width: 1.5,
+                            ),
                           ),
-                        ),
-                        child: Icon(
-                          FontAwesomeIcons.fingerprint,
-                          color: primaryColor,
-                          size: 32,
+                          child: Icon(
+                            FontAwesomeIcons.fingerprint,
+                            color: primaryColor,
+                            size: 32,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -8442,6 +8478,29 @@ Finanças App — Controle suas finanças com simplicidade.
   // --- Widget Principal ---
   @override
   Widget build(BuildContext context) {
+    // Animação de desbloqueio — exibida após biometria verificada
+    if (_showUnlockAnimation) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0D1117),
+        body: Center(
+          child: Lottie.asset(
+            'assets/animations/unlock.json',
+            controller: _unlockAnimController,
+            width: 220,
+            height: 220,
+            repeat: false,
+            onLoaded: (composition) {
+              _unlockAnimController
+                ..duration = composition.duration
+                ..forward().whenComplete(() {
+                  if (mounted) setState(() => _showUnlockAnimation = false);
+                });
+            },
+          ),
+        ),
+      );
+    }
+
     // Tela de bloqueio — exibida quando o app volta do segundo plano
     if (_isLocked && !_isGuest) return _buildLockScreen();
 
@@ -8516,7 +8575,7 @@ Finanças App — Controle suas finanças com simplicidade.
                   ),
                 ),
                 // Aba 1: Extrato
-                SingleChildScrollView(
+                Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TransactionsScreen(
                     transactions: _transactions,

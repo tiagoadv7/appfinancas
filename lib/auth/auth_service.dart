@@ -21,6 +21,12 @@ abstract class AuthService {
   /// O usuário clica no link recebido por e-mail para redefinir a senha.
   Future<bool> resetPassword({required String email});
 
+  /// Confirma a redefinição de senha usando o [oobCode] recebido por e-mail.
+  Future<void> confirmPasswordReset({
+    required String oobCode,
+    required String newPassword,
+  });
+
   /// Troca a senha do usuário autenticado.
   /// Reautentica com [currentPassword] antes de aplicar [newPassword].
   Future<void> changePassword({

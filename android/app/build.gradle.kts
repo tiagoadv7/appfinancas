@@ -26,7 +26,7 @@ android {
         applicationId = "com.example.appfinancas"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Mínimo para biometria (local_auth)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -38,6 +38,12 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    lint {
+        // ExtraTranslation falso-positivo: strings pertencem ao módulo local_auth_android
+        // e são mescladas no APK final — não causam crash em nenhum locale.
+        disable += "ExtraTranslation"
     }
 }
 dependencies {

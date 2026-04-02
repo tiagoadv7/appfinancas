@@ -158,12 +158,36 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<bool> resetPassword({required String email}) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      final actionCodeSettings = fb.ActionCodeSettings(
+        url: 'https://appfinancas-9d7a3.firebaseapp.com/__/auth/action',
+        handleCodeInApp: true,
+        androidPackageName: 'com.example.appfinancas',
+        androidInstallApp: true,
+        androidMinimumVersion: '23',
+      );
+      await _auth.sendPasswordResetEmail(
+        email: email.trim(),
+        actionCodeSettings: actionCodeSettings,
+      );
       return true;
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
     } catch (e) {
       throw Exception('Erro ao enviar e-mail de redefinição. Verifique sua conexão.');
+    }
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String oobCode,
+    required String newPassword,
+  }) async {
+    try {
+      await _auth.confirmPasswordReset(code: oobCode, newPassword: newPassword);
+    } on fb.FirebaseAuthException catch (e) {
+      throw Exception(_translateError(e.code));
+    } catch (e) {
+      throw Exception('Erro ao redefinir senha. Tente novamente.');
     }
   }
 
