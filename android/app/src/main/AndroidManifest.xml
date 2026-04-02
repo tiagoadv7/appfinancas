@@ -3,6 +3,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+    <!-- Notificações locais (Android 13+) — usadas para avisar sobre atualizações -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- WorkManager: permite reiniciar tarefas após reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Finanças Pessoais App"
         android:name="${applicationName}"

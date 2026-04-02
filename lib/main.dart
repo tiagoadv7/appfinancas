@@ -15,11 +15,24 @@ import 'auth/auth_service.dart';
 import 'auth/mock_auth_service.dart';
 import 'auth/firebase_auth_service.dart';
 import 'services/firestore_service.dart';
+import 'services/update_service.dart';
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
+
+/// Callback top-level exigido pelo WorkManager (roda em isolate separado).
+@pragma('vm:entry-point')
+void _workManagerDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    if (task == UpdateService.bgTaskName) {
+      await UpdateService.runBackgroundCheck();
+    }
+    return true;
+  });
+}
 
 // ===================================================================
 // 1. CONSTANTES, MODELOS E UTILITÁRIOS (Unificados no arquivo principal)
@@ -222,6 +235,8 @@ class Transaction {
   final String? recurringEndMonth; // formato 'yyyy-MM'
   // Controla pago/não-pago por mês para transações recorrentes: {'yyyy-MM': true}
   final Map<String, bool> paidByMonth;
+  // Meses excluídos individualmente (formato 'yyyy-MM') — não afeta outros meses
+  final List<String> deletedMonths;
   final String? comments;
 
   Transaction.fromMap(Map<String, dynamic> data)
@@ -241,6 +256,9 @@ class Transaction {
               ),
             )
           : {},
+      deletedMonths = data['deletedMonths'] is List
+          ? List<String>.from(data['deletedMonths'])
+          : [],
       comments = data['comments']?.toString();
 
   static DateTime _parseDate(dynamic value) {
@@ -266,14 +284,22 @@ class Transaction {
     'recurringStartMonth': recurringStartMonth,
     'recurringEndMonth': recurringEndMonth,
     'paidByMonth': paidByMonth,
+    'deletedMonths': deletedMonths,
     'comments': comments,
   };
 
-  // Helper para criar uma cópia com isPaid ou paidByMonth alterado
-  Transaction copyWith({bool? isPaid, Map<String, bool>? paidByMonth}) {
+  // Helper para criar uma cópia com campos alterados
+  Transaction copyWith({
+    bool? isPaid,
+    Map<String, bool>? paidByMonth,
+    String? recurringEndMonth,
+    List<String>? deletedMonths,
+  }) {
     final map = toMap();
     if (isPaid != null) map['isPaid'] = isPaid;
     if (paidByMonth != null) map['paidByMonth'] = paidByMonth;
+    if (recurringEndMonth != null) map['recurringEndMonth'] = recurringEndMonth;
+    if (deletedMonths != null) map['deletedMonths'] = deletedMonths;
     return Transaction.fromMap(map);
   }
 }
@@ -1162,15 +1188,21 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                     ),
                     const SizedBox(height: 15),
                     // Data
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Data: ${_formatDateSafe(_selectedDate)}',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                    TextFormField(
+                      readOnly: true,
+                      controller: TextEditingController(
+                        text: _formatDateSafe(_selectedDate),
                       ),
-                      trailing: const Icon(
-                        FontAwesomeIcons.calendar,
-                        color: primaryColor,
+                      decoration: const InputDecoration(
+                        labelText: 'Data',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                        suffixIcon: Icon(
+                          FontAwesomeIcons.calendar,
+                          color: primaryColor,
+                          size: 18,
+                        ),
                       ),
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
@@ -1181,9 +1213,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                           locale: const Locale('pt', 'BR'),
                         );
                         if (picked != null && picked != _selectedDate) {
-                          setState(() {
-                            _selectedDate = picked;
-                          });
+                          setState(() => _selectedDate = picked);
                         }
                       },
                     ),
@@ -2527,6 +2557,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         if (!selected.isBefore(start) && !selected.isAfter(end)) {
           final monthKey =
               '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+          // Pula meses excluídos individualmente
+          if (t.deletedMonths.contains(monthKey)) continue;
           final day = t.date.day;
           final daysInMonth = DateUtils.getDaysInMonth(
             _selectedDate.year,
@@ -3809,6 +3841,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           // Cria cópia virtual com isPaid do mês correto
           final monthKey =
               '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+          if (t.deletedMonths.contains(monthKey)) continue;
           final map = t.toMap();
           map['isPaid'] = t.paidByMonth[monthKey] ?? false;
           monthlyTransactions.add(Transaction.fromMap(map));
@@ -4458,7 +4491,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final start = DateTime.parse('${t.recurringStartMonth}-01');
         final end = DateTime.parse('${t.recurringEndMonth}-01');
         final sel = DateTime(month.year, month.month);
-        matches = !sel.isBefore(start) && !sel.isAfter(end);
+        final mKey =
+            '${month.year}-${month.month.toString().padLeft(2, '0')}';
+        matches = !sel.isBefore(start) &&
+            !sel.isAfter(end) &&
+            !t.deletedMonths.contains(mKey);
       } else {
         matches = t.date.year == month.year && t.date.month == month.month;
       }
@@ -5593,6 +5630,23 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   }
+  // Inicializar notificações locais (usadas pela verificação de atualizações)
+  await UpdateService.initNotifications();
+  // Inicializar WorkManager para verificação noturna de atualizações
+  if (!kIsWeb) {
+    await Workmanager().initialize(
+      _workManagerDispatcher,
+      isInDebugMode: false,
+    );
+    await Workmanager().registerPeriodicTask(
+      UpdateService.bgTaskId,
+      UpdateService.bgTaskName,
+      frequency: const Duration(hours: 24),
+      initialDelay: UpdateService.delayUntilNight(),
+      existingWorkPolicy: ExistingWorkPolicy.keep,
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
+  }
   runApp(const MyApp());
 }
 
@@ -5832,6 +5886,8 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+
 class MainApp extends StatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
@@ -5846,10 +5902,14 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
+class _MainAppState extends State<MainApp>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   // Estado da Aplicação
   bool _isLoading = true;
-  bool _isLocked = false;
+  // Na web inicia bloqueado para permitir preview da animação de desbloqueio
+  // Inicia bloqueado na web (preview) — no dispositivo é definido após detectar biometria
+  bool _isLocked = kIsWeb;
+
 
   // Visibilidade de senha nas telas de autenticação
   bool _loginObscure = true;
@@ -5888,9 +5948,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // Configure auth service: mock em debug, Firebase em produção
     _authService = useMockAuth ? MockAuthService() : FirebaseAuthService();
-    // Detecta biometrias disponíveis para exibir ícone/label corretos
-    _detectBiometrics();
     _loadCachedData().then((_) {
+      // Bloqueia ao iniciar se o dispositivo tiver PIN/biometria ativo
+      _lockIfSecured();
       // Auto-dispara biometria no login se o usuário já tinha entrado antes
       if (!kIsWeb && _currentUser == null && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -5903,6 +5963,15 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       }
     });
     _loadInitialData();
+    // Verifica atualização disponível ao abrir o app (foreground)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    final update = await UpdateService.checkForUpdate();
+    if (update != null && mounted) {
+      await UpdateService.showUpdateDialog(context, update);
+    }
   }
 
   @override
@@ -5915,45 +5984,19 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Tipo de biometria disponível no dispositivo
-  List<BiometricType> _availableBiometrics = [];
 
-  /// Detecta quais biometrias o dispositivo suporta (Face ID, digital, íris…)
-  Future<void> _detectBiometrics() async {
-    if (kIsWeb) return;
+  /// Verifica se o dispositivo tem PIN/biometria ativo e bloqueia o app.
+  Future<void> _lockIfSecured() async {
+    if (kIsWeb || _isGuest || _currentUser == null) return;
     try {
       final auth = LocalAuthentication();
       final supported = await auth.isDeviceSupported();
-      if (supported) {
-        _availableBiometrics = await auth.getAvailableBiometrics();
+      if (supported && mounted) {
+        setState(() => _isLocked = true);
+        // Dispara a biometria automaticamente ao bloquear (estilo app bancário)
+        WidgetsBinding.instance.addPostFrameCallback((_) => _unlockApp());
       }
-    } catch (_) {
-      _availableBiometrics = [];
-    }
-  }
-
-  /// Retorna o ícone correto conforme o tipo de biometria disponível.
-  IconData get _biometricIcon {
-    if (_availableBiometrics.contains(BiometricType.face)) {
-      return FontAwesomeIcons.faceSmile; // Face ID
-    }
-    if (_availableBiometrics.contains(BiometricType.fingerprint) ||
-        _availableBiometrics.contains(BiometricType.strong)) {
-      return FontAwesomeIcons.fingerprint; // Touch ID / digital
-    }
-    return FontAwesomeIcons.lock; // PIN / senha do dispositivo
-  }
-
-  /// Texto do botão conforme a biometria disponível.
-  String get _biometricLabel {
-    if (_availableBiometrics.contains(BiometricType.face)) {
-      return 'Desbloquear com Face ID';
-    }
-    if (_availableBiometrics.contains(BiometricType.fingerprint) ||
-        _availableBiometrics.contains(BiometricType.strong)) {
-      return 'Desbloquear com Digital';
-    }
-    return 'Desbloquear com PIN';
+    } catch (_) {}
   }
 
   @override
@@ -5964,40 +6007,42 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused && !_isGuest) {
       setState(() => _isLocked = true);
     }
-    // Aguarda o usuário clicar para desbloquear — não dispara automaticamente
+    // Ao retornar ao foreground com tela bloqueada, dispara biometria
+    if (state == AppLifecycleState.resumed && _isLocked && !_isGuest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _unlockApp());
+    }
   }
 
   Future<void> _unlockApp() async {
+    if (!mounted) return;
+
+    bool authenticated = false;
+
     if (kIsWeb) {
-      if (mounted) setState(() => _isLocked = false);
-      return;
-    }
-    final auth = LocalAuthentication();
-    try {
-      final isSupported = await auth.isDeviceSupported();
-      if (!isSupported) {
-        if (mounted) setState(() => _isLocked = false);
-        return;
+      authenticated = true;
+    } else {
+      final auth = LocalAuthentication();
+      try {
+        final isSupported = await auth.isDeviceSupported();
+        if (!isSupported) {
+          authenticated = true;
+        } else {
+          authenticated = await auth.authenticate(
+            localizedReason:
+                'Use sua digital para acessar o Finanças App',
+            options: const AuthenticationOptions(
+              stickyAuth: true,
+              biometricOnly: false,
+            ),
+          );
+        }
+      } catch (_) {
+        authenticated = true;
       }
-
-      // Atualiza os biométricos disponíveis antes de mostrar o diálogo
-      _availableBiometrics = await auth.getAvailableBiometrics();
-      if (mounted) setState(() {}); // atualiza ícone na tela de bloqueio
-
-      final authenticated = await auth.authenticate(
-        localizedReason: 'Use sua biometria ou PIN para acessar o FinançasApp',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false, // permite PIN/senha do dispositivo também
-        ),
-      );
-      if (authenticated && mounted) {
-        setState(() => _isLocked = false);
-      }
-    } catch (_) {
-      // Erro na plataforma (ex: biometria não configurada) — desbloqueia direto
-      if (mounted) setState(() => _isLocked = false);
     }
+
+    if (!mounted) return;
+    if (authenticated) setState(() => _isLocked = false);
   }
 
   Widget _buildWelcomeBackScreen() {
@@ -6076,161 +6121,153 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   }
 
   Widget _buildLockScreen() {
-    final userName = _currentUser?.name ?? '';
-    final photoUrl = _currentUser?.photoUrl;
-    final initials = userName.isNotEmpty
-        ? userName
-              .trim()
-              .split(' ')
-              .map((w) => w[0])
-              .take(2)
-              .join()
-              .toUpperCase()
-        : '?';
-
     return Scaffold(
-      backgroundColor: const Color(0xFF111827),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 56),
-
-            // ── Avatar do usuário ──────────────────────────────────────────
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  width: 2,
-                ),
-                image: photoUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(photoUrl),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-                color: photoUrl == null
-                    ? primaryColor.withValues(alpha: 0.3)
-                    : null,
+      backgroundColor: const Color(0xFF0D1117),
+      body: Stack(
+        children: [
+          // ── Fundo escuro com gradiente sutil ──────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0D1117), Color(0xFF111827)],
               ),
-              child: photoUrl == null
-                  ? Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          // ── Painel modal inferior (estilo app bancário) ───────────────────
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Color(0xFF1C2333),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 32,
+                    offset: Offset(0, -8),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 20, 32, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ── Handle ─────────────────────────────────────────
+                      Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 16),
+                      const SizedBox(height: 28),
 
-            // ── Nome do usuário ────────────────────────────────────────────
-            Text(
-              userName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _currentUser?.email ?? '',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 13,
-              ),
-            ),
+                      // ── Logo ───────────────────────────────────────────
+                      SvgPicture.asset(
+                        'assets/images/logo.svg',
+                        width: 72,
+                        height: 72,
+                      ),
+                      const SizedBox(height: 14),
 
-            const Spacer(),
+                      // ── Nome do app ────────────────────────────────────
+                      const Text(
+                        'Finanças App',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
 
-            // ── Ícone biométrico central ───────────────────────────────────
-            GestureDetector(
-              onTap: _unlockApp,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.07),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    width: 1.5,
+                      // ── Ícone digital centralizado ─────────────────────
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: primaryColor.withValues(alpha: 0.12),
+                          border: Border.all(
+                            color: primaryColor.withValues(alpha: 0.35),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Icon(
+                          FontAwesomeIcons.fingerprint,
+                          color: primaryColor,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ── Texto principal ────────────────────────────────
+                      const Text(
+                        'Use sua digital para continuar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Botão Cancelar ─────────────────────────────────
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() => _isLocked = false);
+                            _signOut();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.25),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // ── Dica do sensor ─────────────────────────────────
+                      Text(
+                        'Toque no sensor de impressão digital',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
                 ),
-                child: Icon(
-                  _biometricIcon,
-                  color: Colors.white.withValues(alpha: 0.85),
-                  size: 36,
-                ),
               ),
             ),
-            const SizedBox(height: 20),
-
-            // ── Texto de dica ─────────────────────────────────────────────
-            Text(
-              'Verificação de identidade necessária',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 13,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            const Spacer(),
-
-            // ── Botão principal — igual ao WhatsApp ────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _unlockApp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    elevation: 0,
-                  ),
-                  icon: Icon(_biometricIcon, size: 18),
-                  label: Text(
-                    _biometricLabel,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ── Trocar conta ──────────────────────────────────────────────
-            TextButton(
-              onPressed: () {
-                setState(() => _isLocked = false);
-                _signOut();
-              },
-              child: Text(
-                'Trocar de conta',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -7222,7 +7259,17 @@ Finanças App — Controle suas finanças com simplicidade.
     // Apenas owner e collaborator podem deletar
     if (!_isAdmin && !_isCollaborator) return;
 
-    // A confirmação agora é feita pelo Dismissible, mas mantemos o dialog como fallback
+    final isVirtual = id.contains('@');
+    final baseId = isVirtual ? id.substring(0, id.indexOf('@')) : id;
+    final monthKey = isVirtual ? id.substring(id.indexOf('@') + 1) : null;
+
+    // Se for recorrente virtual, mostra 3 opções de exclusão
+    if (isVirtual && monthKey != null) {
+      _showRecurringDeleteDialog(baseId, monthKey);
+      return;
+    }
+
+    // Transação normal: dialog de confirmação padrão
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -7238,7 +7285,6 @@ Finanças App — Controle suas finanças com simplicidade.
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Ícone de exclusão no centro com background arredondado
               Container(
                 width: 80,
                 height: 80,
@@ -7255,14 +7301,12 @@ Finanças App — Controle suas finanças com simplicidade.
                 ),
               ),
               const SizedBox(height: 24),
-              // Título
               const Text(
                 'Confirmar Exclusão',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              // Descrição
               Text(
                 'Tem certeza que deseja deletar esta transação? Esta ação não pode ser desfeita.',
                 style: TextStyle(
@@ -7272,7 +7316,6 @@ Finanças App — Controle suas finanças com simplicidade.
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              // Botões de ação
               Row(
                 children: [
                   Expanded(
@@ -7303,15 +7346,10 @@ Finanças App — Controle suas finanças com simplicidade.
                       icon: const Icon(FontAwesomeIcons.trash),
                       label: const Text('Excluir'),
                       onPressed: () {
-                        // IDs virtuais de recorrentes usam 'baseId@monthKey'
-                        final baseId = id.contains('@')
-                            ? id.substring(0, id.indexOf('@'))
-                            : id;
                         setState(() {
                           _transactions.removeWhere((t) => t.id == baseId);
                         });
                         _saveCachedData();
-                        // Persiste exclusão no Firestore
                         if (!useMockAuth && _activeUid != null) {
                           _firestoreService.deleteTransaction(
                             _activeUid!,
@@ -7319,72 +7357,7 @@ Finanças App — Controle suas finanças com simplicidade.
                           );
                         }
                         Navigator.of(context).pop();
-                        // Modal de sucesso igual ao de atualização
-                        showDialog(
-                          context: context,
-                          barrierDismissible: true,
-                          builder: (BuildContext ctx) {
-                            Future.delayed(
-                              const Duration(milliseconds: 1200),
-                              () {
-                                if (Navigator.canPop(ctx)) {
-                                  Navigator.of(ctx).pop();
-                                }
-                              },
-                            );
-                            return Dialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 24.0,
-                                  horizontal: 24.0,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 72,
-                                      height: 72,
-                                      decoration: BoxDecoration(
-                                        color: expenseColor.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          FontAwesomeIcons.trash,
-                                          color: expenseColor,
-                                          size: 36,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'Dados excluídos',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'A transação foi excluída com sucesso.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          ctx,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
+                        _showDeleteSuccessDialog();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: expenseColor,
@@ -7399,6 +7372,248 @@ Finanças App — Controle suas finanças com simplicidade.
                 ],
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Calcula o mês anterior no formato 'yyyy-MM'
+  String _previousMonth(String monthKey) {
+    final parts = monthKey.split('-');
+    var year = int.parse(parts[0]);
+    var month = int.parse(parts[1]);
+    month -= 1;
+    if (month == 0) {
+      month = 12;
+      year -= 1;
+    }
+    return '$year-${month.toString().padLeft(2, '0')}';
+  }
+
+  void _showRecurringDeleteDialog(String baseId, String monthKey) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Theme.of(ctx).cardColor,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 24,
+            horizontal: 24,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: expenseColor,
+                    size: 48,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Excluir Recorrência',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'O que deseja excluir desta transação recorrente?',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              // Opção 1: Somente este mês
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    final idx = _transactions.indexWhere((t) => t.id == baseId);
+                    if (idx != -1) {
+                      final t = _transactions[idx];
+                      final updated = t.copyWith(
+                        deletedMonths: [...t.deletedMonths, monthKey],
+                      );
+                      setState(() => _transactions[idx] = updated);
+                      _saveCachedData();
+                      if (!useMockAuth && _activeUid != null) {
+                        _firestoreService.saveTransactionRaw(
+                          _activeUid!,
+                          baseId,
+                          updated.toMap(),
+                        );
+                      }
+                    }
+                    Navigator.of(ctx).pop();
+                    _showDeleteSuccessDialog();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Somente este mês'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Opção 2: Este e os seguintes
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    final idx = _transactions.indexWhere((t) => t.id == baseId);
+                    if (idx != -1) {
+                      final t = _transactions[idx];
+                      final prevMonth = _previousMonth(monthKey);
+                      // Se o mês atual é o mês inicial, exclui tudo
+                      if (prevMonth == _previousMonth(t.recurringStartMonth ?? monthKey) ||
+                          monthKey == t.recurringStartMonth) {
+                        setState(() => _transactions.removeAt(idx));
+                        _saveCachedData();
+                        if (!useMockAuth && _activeUid != null) {
+                          _firestoreService.deleteTransaction(
+                            _activeUid!,
+                            baseId,
+                          );
+                        }
+                      } else {
+                        final updated = t.copyWith(
+                          recurringEndMonth: prevMonth,
+                        );
+                        setState(() => _transactions[idx] = updated);
+                        _saveCachedData();
+                        if (!useMockAuth && _activeUid != null) {
+                          _firestoreService.saveTransactionRaw(
+                            _activeUid!,
+                            baseId,
+                            updated.toMap(),
+                          );
+                        }
+                      }
+                    }
+                    Navigator.of(ctx).pop();
+                    _showDeleteSuccessDialog();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Este e os seguintes'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Opção 3: Todos
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(FontAwesomeIcons.trash, size: 14),
+                  label: const Text('Todos'),
+                  onPressed: () {
+                    setState(() {
+                      _transactions.removeWhere((t) => t.id == baseId);
+                    });
+                    _saveCachedData();
+                    if (!useMockAuth && _activeUid != null) {
+                      _firestoreService.deleteTransaction(_activeUid!, baseId);
+                    }
+                    Navigator.of(ctx).pop();
+                    _showDeleteSuccessDialog();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: expenseColor,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(
+                  'Cancelar',
+                  style: TextStyle(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext ctx) {
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (ctx.mounted && Navigator.canPop(ctx)) Navigator.of(ctx).pop();
+        });
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 24.0,
+              horizontal: 24.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: expenseColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      FontAwesomeIcons.trash,
+                      color: expenseColor,
+                      size: 36,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Dados excluídos',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'A transação foi excluída com sucesso.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -7453,6 +7668,7 @@ Finanças App — Controle suas finanças com simplicidade.
 
       final monthKey =
           '${month.year}-${month.month.toString().padLeft(2, '0')}';
+      if (t.isRecurring && t.deletedMonths.contains(monthKey)) continue;
       final isPaidForMonth = t.isRecurring
           ? (t.paidByMonth[monthKey] ?? false)
           : t.isPaid;
