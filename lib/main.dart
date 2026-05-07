@@ -3658,12 +3658,14 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   children: [
                     _summaryItem(
+                      context,
                       label: 'Recebido',
                       value: paidIncome,
                       color: incomeColor,
                     ),
                     const Spacer(),
                     _summaryItem(
+                      context,
                       label: 'A Receber',
                       value: pendingIncome,
                       color: expenseColor,
@@ -3742,12 +3744,14 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   children: [
                     _summaryItem(
+                      context,
                       label: 'Pago',
                       value: paidExpense,
                       color: incomeColor,
                     ),
                     const Spacer(),
                     _summaryItem(
+                      context,
                       label: 'A Pagar',
                       value: pendingExpense,
                       color: expenseColor,
@@ -3773,13 +3777,13 @@ class DashboardScreen extends StatelessWidget {
     Color color = primaryColor,
   }) {
     final text = formatCurrency(value.abs()).replaceAll('R\$', '').trim();
-    final subColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    final subColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
     return Expanded(
       child: Column(
         children: [
           Icon(icon, color: color, size: 14),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: subColor, fontSize: 11)),
+          Text(label, style: TextStyle(color: subColor, fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(
             text,
@@ -3795,7 +3799,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _summaryItem({
+  Widget _summaryItem(
+    BuildContext context, {
     required String label,
     required double value,
     required Color color,
@@ -3804,7 +3809,14 @@ class DashboardScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: align,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           formatCurrency(value),
@@ -5903,6 +5915,7 @@ class _MainAppState extends State<MainApp>
   bool _showUnlockAnimation = false;
   bool _isAuthenticating = false;
   late final AnimationController _unlockAnimController;
+  late final AnimationController _unlockFadeController;
 
 
   // Visibilidade de senha nas telas de autenticação
@@ -5940,6 +5953,10 @@ class _MainAppState extends State<MainApp>
   void initState() {
     super.initState();
     _unlockAnimController = AnimationController(vsync: this);
+    _unlockFadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     WidgetsBinding.instance.addObserver(this);
     // Configure auth service: mock em debug, Firebase em produção
     _authService = useMockAuth ? MockAuthService() : FirebaseAuthService();
@@ -5972,6 +5989,7 @@ class _MainAppState extends State<MainApp>
   @override
   void dispose() {
     _unlockAnimController.dispose();
+    _unlockFadeController.dispose();
     _txSub?.cancel();
     _catSub?.cancel();
     _loginEmailController.dispose();
@@ -8488,20 +8506,35 @@ Finanças App — Controle suas finanças com simplicidade.
     if (_showUnlockAnimation) {
       return Scaffold(
         backgroundColor: const Color(0xFF0D1117),
-        body: Center(
-          child: Lottie.asset(
-            'assets/animations/unlock.json',
-            controller: _unlockAnimController,
-            width: 220,
-            height: 220,
-            repeat: false,
-            onLoaded: (composition) {
-              _unlockAnimController
-                ..duration = composition.duration
-                ..forward().whenComplete(() {
-                  if (mounted) setState(() => _showUnlockAnimation = false);
-                });
-            },
+        body: FadeTransition(
+          opacity: ReverseAnimation(
+            CurvedAnimation(
+              parent: _unlockFadeController,
+              curve: Curves.easeOut,
+            ),
+          ),
+          child: Center(
+            child: Lottie.asset(
+              'assets/animations/unlock.json',
+              controller: _unlockAnimController,
+              width: 220,
+              height: 220,
+              repeat: false,
+              onLoaded: (composition) {
+                _unlockAnimController
+                  ..duration = composition.duration
+                  ..forward().whenComplete(() async {
+                    if (!mounted) return;
+                    await _unlockFadeController.forward();
+                    if (mounted) {
+                      setState(() {
+                        _showUnlockAnimation = false;
+                        _unlockFadeController.reset();
+                      });
+                    }
+                  });
+              },
+            ),
           ),
         ),
       );
@@ -8559,8 +8592,15 @@ Finanças App — Controle suas finanças com simplicidade.
       body: _isLoading
           ? _currentUser != null
                 ? _buildWelcomeBackScreen()
-                : const Center(
-                    child: CircularProgressIndicator(color: primaryColor),
+                : Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const AppLogo(width: 80, height: 80, fit: BoxFit.contain),
+                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(color: primaryColor),
+                      ],
+                    ),
                   )
           : _isGuest
           ? _buildGuestScreen()
