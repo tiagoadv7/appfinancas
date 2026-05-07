@@ -2222,7 +2222,12 @@ class TransactionCard extends StatelessWidget {
                             '${category.name} • ${formatDate(transaction.date)}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                              fontWeight: transaction.isPaid
+                                  ? FontWeight.normal
+                                  : FontWeight.w600,
+                              color: transaction.isPaid
+                                  ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)
+                                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
                             ),
                           ),
                         ],
