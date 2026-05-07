@@ -2227,7 +2227,7 @@ class TransactionCard extends StatelessWidget {
                                   : FontWeight.w600,
                               color: transaction.isPaid
                                   ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)
-                                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
+                                  : const Color.fromARGB(255, 140, 65, 0),
                             ),
                           ),
                         ],
