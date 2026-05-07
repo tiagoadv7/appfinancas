@@ -3563,9 +3563,9 @@ class DashboardScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: progress,
-                              backgroundColor: primaryColor.withAlpha(40),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                primaryColor,
+                              backgroundColor: (balance >= 0 ? incomeColor : expenseColor).withAlpha(40),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                balance >= 0 ? incomeColor : expenseColor,
                               ),
                               minHeight: 6,
                             ),
