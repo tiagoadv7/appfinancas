@@ -3475,7 +3475,7 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 // Valor principal
                 Text(
-                  formatCurrency(balance.abs()),
+                  formatCurrency(balance),
                   style: TextStyle(
                     color: balance >= 0 ? primaryColor : expenseColor,
                     fontSize: 32,
@@ -3616,7 +3616,7 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ENTRADAS',
+                          'CONTAS A RECEBER',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -3626,7 +3626,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(totalIncome),
+                          formatCurrency(pendingIncome),
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -3700,7 +3700,7 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'SAÍDAS',
+                          'CONTAS A PAGAR',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -3710,7 +3710,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(totalExpense),
+                          formatCurrency(pendingExpense),
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
