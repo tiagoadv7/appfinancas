@@ -3477,8 +3477,9 @@ class DashboardScreen extends StatelessWidget {
                     Text(
                       'Saldo Atual',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: incomeColor,
                         fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -3631,7 +3632,7 @@ class DashboardScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: primaryColor,
                             letterSpacing: 0.2,
                           ),
                         ),
