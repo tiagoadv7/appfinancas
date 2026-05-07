@@ -2442,31 +2442,75 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTime _selectedDate = DateTime.now();
   late String _activeFilter;
+  List<Transaction> _filteredTransactions = [];
+
+  void _computeFilteredTransactions() {
+    final List<Transaction> expanded = [];
+    for (final t in widget.transactions) {
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        final start = DateTime.parse('${t.recurringStartMonth}-01');
+        final end = DateTime.parse('${t.recurringEndMonth}-01');
+        final selected = DateTime(_selectedDate.year, _selectedDate.month);
+        if (!selected.isBefore(start) && !selected.isAfter(end)) {
+          final monthKey =
+              '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+          if (t.deletedMonths.contains(monthKey)) continue;
+          final day = t.date.day;
+          final daysInMonth = DateUtils.getDaysInMonth(
+            _selectedDate.year,
+            _selectedDate.month,
+          );
+          final adjustedDay = day.clamp(1, daysInMonth);
+          final map = t.toMap();
+          map['id'] = '${t.id}@$monthKey';
+          map['date'] =
+              '$monthKey-${adjustedDay.toString().padLeft(2, '0')}';
+          map['isPaid'] = t.paidByMonth[monthKey] ?? false;
+          expanded.add(Transaction.fromMap(map));
+        }
+      } else if (t.date.year == _selectedDate.year &&
+          t.date.month == _selectedDate.month) {
+        expanded.add(t);
+      }
+    }
+    _filteredTransactions = expanded
+        .where((t) =>
+            _activeFilter == 'all' ||
+            widget.getCategoryById(t.categoryId).type == _activeFilter)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
 
   @override
   void initState() {
     super.initState();
     _activeFilter = widget.filterType;
+    _computeFilteredTransactions();
   }
 
   @override
   void didUpdateWidget(TransactionsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sincroniza filtro quando o pai muda (ex: clique nos cards do dashboard)
+    bool needsRecompute = widget.transactions != oldWidget.transactions;
+
     if (widget.filterType != oldWidget.filterType) {
-      setState(() => _activeFilter = widget.filterType);
+      _activeFilter = widget.filterType;
+      needsRecompute = true;
     }
-    // Navega ao mês indicado quando o pai solicita (ex: após adicionar recorrência)
     if (widget.focusDate != null &&
         widget.focusDate != oldWidget.focusDate &&
         (widget.focusDate!.year != _selectedDate.year ||
             widget.focusDate!.month != _selectedDate.month)) {
-      setState(() {
-        _selectedDate = DateTime(
-          widget.focusDate!.year,
-          widget.focusDate!.month,
-        );
-      });
+      _selectedDate = DateTime(
+        widget.focusDate!.year,
+        widget.focusDate!.month,
+      );
+      needsRecompute = true;
+    }
+    if (needsRecompute) {
+      setState(() => _computeFilteredTransactions());
     }
   }
 
@@ -2474,7 +2518,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final selected = _activeFilter == value;
     return GestureDetector(
       onTap: () {
-        setState(() => _activeFilter = value);
+        setState(() {
+          _activeFilter = value;
+          _computeFilteredTransactions();
+        });
         widget.onFilterChanged?.call(value);
       },
       child: AnimatedContainer(
@@ -2534,46 +2581,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Expande transações recorrentes para o mês selecionado
-    final List<Transaction> expandedForMonth = [];
-    for (final t in widget.transactions) {
-      if (t.isRecurring &&
-          t.recurringStartMonth != null &&
-          t.recurringEndMonth != null) {
-        final start = DateTime.parse('${t.recurringStartMonth}-01');
-        final end = DateTime.parse('${t.recurringEndMonth}-01');
-        final selected = DateTime(_selectedDate.year, _selectedDate.month);
-        if (!selected.isBefore(start) && !selected.isAfter(end)) {
-          final monthKey =
-              '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
-          // Pula meses excluídos individualmente
-          if (t.deletedMonths.contains(monthKey)) continue;
-          final day = t.date.day;
-          final daysInMonth = DateUtils.getDaysInMonth(
-            _selectedDate.year,
-            _selectedDate.month,
-          );
-          final adjustedDay = day.clamp(1, daysInMonth);
-          final map = t.toMap();
-          // ID virtual com mês embutido para controle de pago por mês
-          map['id'] = '${t.id}@$monthKey';
-          map['date'] = '$monthKey-${adjustedDay.toString().padLeft(2, '0')}';
-          // isPaid individual por mês
-          map['isPaid'] = t.paidByMonth[monthKey] ?? false;
-          expandedForMonth.add(Transaction.fromMap(map));
-        }
-      } else if (t.date.year == _selectedDate.year &&
-          t.date.month == _selectedDate.month) {
-        expandedForMonth.add(t);
-      }
-    }
-    final filteredTransactions = expandedForMonth.where((t) {
-      final cat = widget.getCategoryById(t.categoryId);
-      return _activeFilter == 'all' || cat.type == _activeFilter;
-    }).toList();
-
-    // Ordenar por data decrescente
-    filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
+    final filteredTransactions = _filteredTransactions;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2669,6 +2677,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       _selectedDate.year,
                       _selectedDate.month - 1,
                     );
+                    _computeFilteredTransactions();
                     widget.onDateChanged?.call(_selectedDate);
                   });
                 },
@@ -2686,6 +2695,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     if (picked != null && picked != _selectedDate) {
                       setState(() {
                         _selectedDate = picked;
+                        _computeFilteredTransactions();
                         widget.onDateChanged?.call(_selectedDate);
                       });
                     }
@@ -2720,6 +2730,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       _selectedDate.year,
                       _selectedDate.month + 1,
                     );
+                    _computeFilteredTransactions();
                     widget.onDateChanged?.call(_selectedDate);
                   });
                 },
@@ -5461,7 +5472,9 @@ class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late final AnimationController _rotationController;
+  late final AnimationController _fadeController;
   late final Animation<double> _scale;
+  late final Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -5474,7 +5487,14 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
     _controller.forward();
     _rotationController.repeat();
   }
@@ -5487,50 +5507,43 @@ class _SplashScreenState extends State<SplashScreen>
     _navigateToHome();
   }
 
+  PageRouteBuilder<void> _fadeRoute() => PageRouteBuilder(
+    transitionDuration: const Duration(milliseconds: 350),
+    pageBuilder: (_, _, _) => MainApp(
+      toggleTheme: widget.toggleTheme,
+      isDarkMode: widget.isDarkMode,
+    ),
+    transitionsBuilder: (_, animation, _, child) =>
+        FadeTransition(opacity: animation, child: child),
+  );
+
   Future<void> _navigateToHome() async {
-    // Simula um tempo de carregamento para a splash screen ser visível.
-    // Protege a navegação com try/catch e adiciona um watchdog que garante
-    // que a aplicação não fique travada na splash (fallback após 5s).
     try {
-      await Future.delayed(const Duration(milliseconds: 1400));
+      await Future.delayed(const Duration(milliseconds: 1000));
+      if (!mounted) return;
+
+      // Fade-out da splash antes de navegar
+      await _fadeController.forward();
       if (!mounted) return;
 
       void doNavigate() {
         try {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => MainApp(
-                toggleTheme: widget.toggleTheme,
-                isDarkMode: widget.isDarkMode,
-              ),
-            ),
-          );
+          Navigator.of(context).pushReplacement(_fadeRoute());
         } catch (e, st) {
-          // Se falhar, loga e tentará o fallback mais abaixo.
-          // Não rethrow para não travar a UI.
           // ignore: avoid_print
           print('Navigation error in SplashScreen: $e\n$st');
         }
       }
 
-      // Navega logo após o frame corrente para evitar problemas de render.
       WidgetsBinding.instance.addPostFrameCallback((_) => doNavigate());
 
-      // Watchdog: se ainda estiver na splash após 5s, força navegação para
-      // evitar que o app fique preso (ex.: erro silencioso em MainApp).
+      // Watchdog: garante saída da splash após 5s em caso de erro silencioso
       Future.delayed(const Duration(seconds: 5), () {
         if (!mounted) return;
         final route = ModalRoute.of(context);
         if (route != null && route.isCurrent) {
           try {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => MainApp(
-                  toggleTheme: widget.toggleTheme,
-                  isDarkMode: widget.isDarkMode,
-                ),
-              ),
-            );
+            Navigator.of(context).pushReplacement(_fadeRoute());
           } catch (e) {
             // ignore: avoid_print
             print('Watchdog navigation failed: $e');
@@ -5538,19 +5551,11 @@ class _SplashScreenState extends State<SplashScreen>
         }
       });
     } catch (e, st) {
-      // Em caso de erro inesperado, navega para evitar bloqueio da UI.
       // ignore: avoid_print
       print('Unexpected error in _navigateToHome: $e\n$st');
       if (!mounted) return;
       try {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => MainApp(
-              toggleTheme: widget.toggleTheme,
-              isDarkMode: widget.isDarkMode,
-            ),
-          ),
-        );
+        Navigator.of(context).pushReplacement(_fadeRoute());
       } catch (_) {}
     }
   }
@@ -5559,13 +5564,16 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() {
     _controller.dispose();
     _rotationController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: Center(
           child: Column(
@@ -5614,6 +5622,7 @@ class _SplashScreenState extends State<SplashScreen>
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -6341,9 +6350,6 @@ class _MainAppState extends State<MainApp>
 
   // --- Lógica Mock de Carregamento de Dados (Simulando Firebase) ---
   Future<void> _loadInitialData() async {
-    // Simula o tempo de carregamento
-    await Future.delayed(const Duration(milliseconds: 1500));
-
     setState(() {
       // Carrega categorias mock apenas em modo de desenvolvimento (debug/mock).
       // Em produção, as categorias vêm do Firestore após o login.
