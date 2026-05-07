@@ -3448,11 +3448,11 @@ class DashboardScreen extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: primaryColor, width: 1),
+            side: BorderSide(color: incomeColor, width: 1),
           ),
           child: Container(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: primaryColor, width: 3)),
+              border: Border(top: BorderSide(color: incomeColor, width: 3)),
             ),
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -3464,12 +3464,12 @@ class DashboardScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: primaryColor.withAlpha(30),
+                        color: incomeColor.withAlpha(30),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         FontAwesomeIcons.wallet,
-                        color: primaryColor,
+                        color: incomeColor,
                         size: 16,
                       ),
                     ),
@@ -3489,7 +3489,7 @@ class DashboardScreen extends StatelessWidget {
                 Text(
                   formatCurrency(balance),
                   style: TextStyle(
-                    color: balance >= 0 ? primaryColor : expenseColor,
+                    color: balance >= 0 ? incomeColor : expenseColor,
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
                   ),
@@ -3600,11 +3600,11 @@ class DashboardScreen extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: incomeColor, width: 1),
+            side: BorderSide(color: primaryColor, width: 1),
           ),
           child: Container(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: incomeColor, width: 3)),
+              border: Border(top: BorderSide(color: primaryColor, width: 3)),
             ),
             padding: const EdgeInsets.all(22),
             child: Column(
@@ -3614,12 +3614,12 @@ class DashboardScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: incomeColor.withAlpha(30),
+                        color: primaryColor.withAlpha(30),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         FontAwesomeIcons.arrowTrendUp,
-                        color: incomeColor,
+                        color: primaryColor,
                         size: 20,
                       ),
                     ),
@@ -3642,7 +3642,7 @@ class DashboardScreen extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: incomeColor,
+                            color: primaryColor,
                           ),
                         ),
                       ],
