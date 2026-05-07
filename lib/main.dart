@@ -2443,6 +2443,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTime _selectedDate = DateTime.now();
   late String _activeFilter;
   List<Transaction> _filteredTransactions = [];
+  List<Transaction> _allMonthTransactions = [];
 
   void _computeFilteredTransactions() {
     final List<Transaction> expanded = [];
@@ -2475,6 +2476,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         expanded.add(t);
       }
     }
+    _allMonthTransactions = List.from(expanded);
     _filteredTransactions = expanded
         .where((t) =>
             _activeFilter == 'all' ||
@@ -2711,31 +2713,43 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         const SizedBox(height: 12),
 
         // Filter chips — Todos / A Receber / A Pagar
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _filterChip(
-              'Todos',
-              'all',
-              Colors.grey.shade600,
-              FontAwesomeIcons.list,
-            ),
-            const SizedBox(width: 8),
-            _filterChip(
-              'A Receber',
-              'income',
-              incomeColor,
-              FontAwesomeIcons.arrowTrendUp,
-            ),
-            const SizedBox(width: 8),
-            _filterChip(
-              'A Pagar',
-              'expense',
-              expenseColor,
-              FontAwesomeIcons.arrowTrendDown,
-            ),
-          ],
-        ),
+        // Label "A Pagar" vira "Pagos" quando todas as despesas do mês estão quitadas
+        Builder(builder: (_) {
+          final expenses = _allMonthTransactions
+              .where(
+                (t) => widget.getCategoryById(t.categoryId).type == 'expense',
+              )
+              .toList();
+          final expenseLabel =
+              expenses.isNotEmpty && expenses.every((t) => t.isPaid)
+                  ? 'Pagos'
+                  : 'A Pagar';
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _filterChip(
+                'Todos',
+                'all',
+                Colors.grey.shade600,
+                FontAwesomeIcons.list,
+              ),
+              const SizedBox(width: 8),
+              _filterChip(
+                'A Receber',
+                'income',
+                incomeColor,
+                FontAwesomeIcons.arrowTrendUp,
+              ),
+              const SizedBox(width: 8),
+              _filterChip(
+                expenseLabel,
+                'expense',
+                expenseColor,
+                FontAwesomeIcons.arrowTrendDown,
+              ),
+            ],
+          );
+        }),
         const SizedBox(height: 16),
 
         if (filteredTransactions.isEmpty)
