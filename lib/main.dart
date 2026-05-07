@@ -3626,7 +3626,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(pendingIncome),
+                          formatCurrency(totalIncome),
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -3710,7 +3710,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(pendingExpense),
+                          formatCurrency(totalExpense),
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
