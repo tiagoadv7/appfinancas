@@ -2535,11 +2535,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final selected = _activeFilter == value;
     return GestureDetector(
       onTap: () {
+        final next = _activeFilter == value ? 'all' : value;
         setState(() {
-          _activeFilter = value;
+          _activeFilter = next;
           _computeFilteredTransactions();
         });
-        widget.onFilterChanged?.call(value);
+        widget.onFilterChanged?.call(next);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
