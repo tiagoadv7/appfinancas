@@ -2713,17 +2713,25 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         const SizedBox(height: 12),
 
         // Filter chips — Todos / A Receber / A Pagar
-        // Label "A Pagar" vira "Pagos" quando todas as despesas do mês estão quitadas
         Builder(builder: (_) {
           final expenses = _allMonthTransactions
               .where(
                 (t) => widget.getCategoryById(t.categoryId).type == 'expense',
               )
               .toList();
+          final incomes = _allMonthTransactions
+              .where(
+                (t) => widget.getCategoryById(t.categoryId).type == 'income',
+              )
+              .toList();
           final expenseLabel =
               expenses.isNotEmpty && expenses.every((t) => t.isPaid)
                   ? 'Pagos'
                   : 'A Pagar';
+          final incomeLabel =
+              incomes.isNotEmpty && incomes.every((t) => t.isPaid)
+                  ? 'Recebidos'
+                  : 'A Receber';
           return Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -2735,7 +2743,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
               const SizedBox(width: 8),
               _filterChip(
-                'A Receber',
+                incomeLabel,
                 'income',
                 incomeColor,
                 FontAwesomeIcons.arrowTrendUp,
