@@ -7310,7 +7310,8 @@ Finanças App — Controle suas finanças com simplicidade.
     };
     // Armazena UMA transação base; a expansão por mês é feita na exibição
     setState(() {
-      _transactions.add(Transaction.fromMap(txMap));
+      _transactions = List<Transaction>.from(_transactions)
+        ..add(Transaction.fromMap(txMap));
       _selectedIndex = 1;
       if (transaction.isRecurring && transaction.recurringStartMonth != null) {
         _extractFocusDate = DateTime.parse(
