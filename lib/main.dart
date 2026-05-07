@@ -3715,10 +3715,10 @@ class DashboardScreen extends StatelessWidget {
                       children: [
                         Text(
                           'Contas a Pagar',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: expenseColor,
                             letterSpacing: 0.2,
                           ),
                         ),
