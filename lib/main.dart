@@ -2443,7 +2443,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTime _selectedDate = DateTime.now();
   late String _activeFilter;
   List<Transaction> _filteredTransactions = [];
-  List<Transaction> _allMonthTransactions = [];
+
+  // Mapeia valores legados ('income'/'expense') para os novos filtros granulares
+  String _mapFilterType(String f) {
+    if (f == 'income') return 'income_pending';
+    if (f == 'expense') return 'expense_pending';
+    return f;
+  }
 
   void _computeFilteredTransactions() {
     final List<Transaction> expanded = [];
@@ -2476,19 +2482,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         expanded.add(t);
       }
     }
-    _allMonthTransactions = List.from(expanded);
-    _filteredTransactions = expanded
-        .where((t) =>
-            _activeFilter == 'all' ||
-            widget.getCategoryById(t.categoryId).type == _activeFilter)
-        .toList()
+    _filteredTransactions = expanded.where((t) {
+      final type = widget.getCategoryById(t.categoryId).type;
+      switch (_activeFilter) {
+        case 'income_pending':  return type == 'income' && !t.isPaid;
+        case 'income_received': return type == 'income' && t.isPaid;
+        case 'expense_pending': return type == 'expense' && !t.isPaid;
+        case 'expense_paid':    return type == 'expense' && t.isPaid;
+        default:                return true; // 'all'
+      }
+    }).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   @override
   void initState() {
     super.initState();
-    _activeFilter = widget.filterType;
+    _activeFilter = _mapFilterType(widget.filterType);
     _computeFilteredTransactions();
   }
 
@@ -2498,7 +2508,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     bool needsRecompute = widget.transactions != oldWidget.transactions;
 
     if (widget.filterType != oldWidget.filterType) {
-      _activeFilter = widget.filterType;
+      _activeFilter = _mapFilterType(widget.filterType);
       needsRecompute = true;
     }
     if (widget.focusDate != null &&
@@ -2712,52 +2722,38 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Filter chips — Todos / A Receber / A Pagar
-        Builder(builder: (_) {
-          final expenses = _allMonthTransactions
-              .where(
-                (t) => widget.getCategoryById(t.categoryId).type == 'expense',
-              )
-              .toList();
-          final incomes = _allMonthTransactions
-              .where(
-                (t) => widget.getCategoryById(t.categoryId).type == 'income',
-              )
-              .toList();
-          final expenseLabel =
-              expenses.isNotEmpty && expenses.every((t) => t.isPaid)
-                  ? 'Pagos'
-                  : 'A Pagar';
-          final incomeLabel =
-              incomes.isNotEmpty && incomes.every((t) => t.isPaid)
-                  ? 'Recebidos'
-                  : 'A Receber';
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _filterChip(
-                'Todos',
-                'all',
-                Colors.grey.shade600,
-                FontAwesomeIcons.list,
-              ),
-              const SizedBox(width: 8),
-              _filterChip(
-                incomeLabel,
-                'income',
-                incomeColor,
-                FontAwesomeIcons.arrowTrendUp,
-              ),
-              const SizedBox(width: 8),
-              _filterChip(
-                expenseLabel,
-                'expense',
-                expenseColor,
-                FontAwesomeIcons.arrowTrendDown,
-              ),
-            ],
-          );
-        }),
+        // Filter chips — 4 filtros: A Receber / Recebidos / A Pagar / Pagos
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _filterChip(
+              'A Receber',
+              'income_pending',
+              incomeColor,
+              FontAwesomeIcons.arrowTrendUp,
+            ),
+            _filterChip(
+              'Recebidos',
+              'income_received',
+              incomeColor,
+              FontAwesomeIcons.circleCheck,
+            ),
+            _filterChip(
+              'A Pagar',
+              'expense_pending',
+              expenseColor,
+              FontAwesomeIcons.arrowTrendDown,
+            ),
+            _filterChip(
+              'Pagos',
+              'expense_paid',
+              expenseColor,
+              FontAwesomeIcons.checkDouble,
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
 
         if (filteredTransactions.isEmpty)
