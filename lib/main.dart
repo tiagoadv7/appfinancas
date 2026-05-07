@@ -2643,14 +2643,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             const SizedBox(width: 8),
             _filterChip(
-              'Entradas',
+              'A Receber',
               'income',
               incomeColor,
               FontAwesomeIcons.arrowTrendUp,
             ),
             const SizedBox(width: 8),
             _filterChip(
-              'Saídas',
+              'A Pagar',
               'expense',
               expenseColor,
               FontAwesomeIcons.arrowTrendDown,
@@ -3595,18 +3595,20 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 16),
 
         // ── ENTRADAS card ───────────────────────────────────────────
-        Card(
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: primaryColor, width: 1),
-          ),
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: primaryColor, width: 3)),
+        GestureDetector(
+          onTap: () => onNavigateToExtract?.call('income'),
+          child: Card(
+            elevation: 0,
+            clipBehavior: Clip.antiAlias,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+              side: BorderSide(color: primaryColor, width: 1),
             ),
-            padding: const EdgeInsets.all(22),
+            child: Container(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: primaryColor, width: 3)),
+              ),
+              padding: const EdgeInsets.all(22),
             child: Column(
               children: [
                 Row(
@@ -3678,10 +3680,13 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
         ),
+        ),
         const SizedBox(height: 12),
 
         // ── SAÍDAS card ─────────────────────────────────────────────
-        Card(
+        GestureDetector(
+          onTap: () => onNavigateToExtract?.call('expense'),
+          child: Card(
           elevation: 0,
           clipBehavior: Clip.antiAlias,
           shape: const RoundedRectangleBorder(
@@ -3763,6 +3768,7 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
 
         const SizedBox(height: 80),
