@@ -2749,7 +2749,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             _filterChip(
               'Pagos',
               'expense_paid',
-              expenseColor,
+              primaryColor,
               FontAwesomeIcons.checkDouble,
             ),
           ],
