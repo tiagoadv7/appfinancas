@@ -1122,7 +1122,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
         ),
         actions: [
           IconButton(
-            icon: Icon(iconMap['X'], color: Colors.grey),
+            icon: Icon(iconMap['X'], color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -1690,7 +1690,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                         ),
                         secondary: Icon(
                           FontAwesomeIcons.circleCheck,
-                          color: _isPaid ? Colors.green : Colors.grey,
+                          color: _isPaid ? Colors.green : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
                           size: 18,
                         ),
                         value: _isPaid,
@@ -1722,7 +1722,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                             ),
                             secondary: Icon(
                               FontAwesomeIcons.arrowsRotate,
-                              color: _isRecurring ? primaryColor : Colors.grey,
+                              color: _isRecurring ? primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
                               size: 18,
                             ),
                             value: _isRecurring,
@@ -2033,7 +2033,7 @@ class _MonthPickerTile extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)),
             ),
             const SizedBox(height: 2),
             Row(
@@ -2222,7 +2222,7 @@ class TransactionCard extends StatelessWidget {
                             '${category.name} • ${formatDate(transaction.date)}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
                             ),
                           ),
                         ],
@@ -2560,9 +2560,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             Icon(
               iconMap['Calendario'],
               size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
@@ -2990,12 +2988,12 @@ class _AnnualPieChartState extends State<AnnualPieChart>
             Icon(
               FontAwesomeIcons.chartPie,
               size: 48,
-              color: Colors.grey.withValues(alpha: 0.4),
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Sem dados para exibir o gráfico.',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],
@@ -3275,7 +3273,7 @@ class CategorySummaryCard extends StatelessWidget {
               Center(
                 child: Text(
                   'Nenhuma transação de ${title.toLowerCase()} registrada.',
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               )
             else
@@ -3317,7 +3315,7 @@ class CategorySummaryCard extends StatelessWidget {
                               '${cat['count']} registro${cat['count'] != 1 ? 's' : ''}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
                               ),
                             ),
                           ],
@@ -3652,12 +3650,12 @@ class DashboardScreen extends StatelessWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () => onNavigateToExtract?.call('income'),
-                      child: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                      child: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Divider(height: 20, thickness: 0.5, color: Colors.grey[300]),
+                Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
                 Row(
                   children: [
                     _summaryItem(
@@ -3741,12 +3739,12 @@ class DashboardScreen extends StatelessWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () => onNavigateToExtract?.call('expense'),
-                      child: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                      child: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Divider(height: 20, thickness: 0.5, color: Colors.grey[300]),
+                Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
                 Row(
                   children: [
                     _summaryItem(
@@ -3784,7 +3782,7 @@ class DashboardScreen extends StatelessWidget {
     Color color = primaryColor,
   }) {
     final text = formatCurrency(value.abs()).replaceAll('R\$', '').trim();
-    final subColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
+    final subColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9);
     return Expanded(
       child: Column(
         children: [
@@ -3821,7 +3819,7 @@ class DashboardScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
           ),
         ),
         const SizedBox(height: 4),
@@ -4090,9 +4088,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Icon(
               iconMap['GraficoPizza'],
               size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
@@ -4296,7 +4292,7 @@ class _SyncDialogState extends State<_SyncDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey),
+                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                       onPressed: _busy
                           ? null
                           : () => Navigator.of(context).pop(),
@@ -4623,12 +4619,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Nome',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
-                                  color: Colors.grey,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               Text(
@@ -4663,12 +4659,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Email',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
-                                  color: Colors.grey,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               Text(
