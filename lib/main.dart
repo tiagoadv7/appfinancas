@@ -4841,8 +4841,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSalaryDialog() {
+    final currentIncome = _incomeForSelectedMonth();
+    final initialValue =
+        widget.user.salary > 0 ? widget.user.salary : currentIncome;
+    final initialText =
+        NumberFormat('#,##0.00', 'pt_BR').format(initialValue);
+    final monthLabel = DateFormat(
+      'MMM/yyyy',
+      'pt_BR',
+    ).format(widget.selectedMonth);
+
     TextEditingController salaryController = TextEditingController(
-      text: widget.user.salary.toString(),
+      text: initialText,
+    );
+    salaryController.selection = TextSelection.fromPosition(
+      TextPosition(offset: salaryController.text.length),
     );
 
     showDialog(
@@ -4852,13 +4865,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Salário'),
+          title: Text('Salário — $monthLabel'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: salaryController,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                autofocus: true,
                 decoration: const InputDecoration(
                   labelText: 'Valor do Salário',
                   prefixText: 'R\$ ',
@@ -6547,6 +6563,9 @@ class _MainAppState extends State<MainApp>
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('currentUser', jsonEncode(updatedUser.toMap()));
+    if (!useMockAuth && _activeUid != null) {
+      await _firestoreService.updateSalary(_activeUid!, updatedUser.salary);
+    }
   }
 
   // --- Integração Firebase: carregar dados do Firestore em tempo real ---
