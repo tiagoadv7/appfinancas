@@ -7167,12 +7167,15 @@ Finanças App — Controle suas finanças com simplicidade.
           final paidMap = Map<String, bool>.from(t.paidByMonth);
           paidMap[monthKey] = isPaid;
           updated = t.copyWith(paidByMonth: paidMap);
+          // Nova referência de lista para que didUpdateWidget detecte a mudança
+          _transactions = List<Transaction>.from(_transactions);
           _transactions[index] = updated!;
         }
       } else {
         final index = _transactions.indexWhere((t) => t.id == baseId);
         if (index != -1) {
           updated = _transactions[index].copyWith(isPaid: isPaid);
+          _transactions = List<Transaction>.from(_transactions);
           _transactions[index] = updated!;
         }
       }
