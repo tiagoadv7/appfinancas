@@ -2631,34 +2631,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Filter chips — Todos / Entradas / Saídas
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _filterChip(
-              'Todos',
-              'all',
-              Colors.grey.shade600,
-              FontAwesomeIcons.list,
-            ),
-            const SizedBox(width: 8),
-            _filterChip(
-              'A Receber',
-              'income',
-              incomeColor,
-              FontAwesomeIcons.arrowTrendUp,
-            ),
-            const SizedBox(width: 8),
-            _filterChip(
-              'A Pagar',
-              'expense',
-              expenseColor,
-              FontAwesomeIcons.arrowTrendDown,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
         // Month Selector — pill shape, full width
         Container(
           decoration: BoxDecoration(
@@ -2737,6 +2709,34 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 12),
+
+        // Filter chips — Todos / A Receber / A Pagar
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _filterChip(
+              'Todos',
+              'all',
+              Colors.grey.shade600,
+              FontAwesomeIcons.list,
+            ),
+            const SizedBox(width: 8),
+            _filterChip(
+              'A Receber',
+              'income',
+              incomeColor,
+              FontAwesomeIcons.arrowTrendUp,
+            ),
+            const SizedBox(width: 8),
+            _filterChip(
+              'A Pagar',
+              'expense',
+              expenseColor,
+              FontAwesomeIcons.arrowTrendDown,
+            ),
+          ],
         ),
         const SizedBox(height: 16),
 
