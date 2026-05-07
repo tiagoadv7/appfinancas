@@ -45,6 +45,14 @@ android {
         // e são mescladas no APK final — não causam crash em nenhum locale.
         disable += "ExtraTranslation"
     }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output?.outputFileName = "FinancasApp-v${variant.versionName}.apk"
+        }
+    }
 }
 dependencies {
   // Import the Firebase BoM
