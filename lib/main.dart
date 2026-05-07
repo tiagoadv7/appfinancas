@@ -3627,12 +3627,12 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'CONTAS A RECEBER',
+                          'Contas a Receber',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[500],
-                            letterSpacing: 1.0,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -3711,12 +3711,12 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'CONTAS A PAGAR',
+                          'Contas a Pagar',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[500],
-                            letterSpacing: 1.0,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 2),
