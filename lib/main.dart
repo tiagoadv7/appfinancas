@@ -3465,14 +3465,16 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 16),
 
         // ── Card Saldo Atual ─────────────────────────────────────────
-        Card(
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: incomeColor, width: 1),
-          ),
-          child: Container(
+        GestureDetector(
+          onTap: () => onNavigateToExtract?.call('all'),
+          child: Card(
+            elevation: 0,
+            clipBehavior: Clip.antiAlias,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+              side: BorderSide(color: incomeColor, width: 1),
+            ),
+            child: Container(
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: incomeColor, width: 3)),
             ),
@@ -3596,16 +3598,13 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                     if (onNavigateToExtract != null)
-                      GestureDetector(
-                        onTap: () => onNavigateToExtract?.call('all'),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Icon(
-                            Icons.chevron_right,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.chevron_right,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -3613,6 +3612,7 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
         const SizedBox(height: 16),
 
