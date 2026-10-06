@@ -49,7 +49,7 @@ jobs:
             echo "::error::Secret GOOGLE_SERVICES_JSON ausente."
             exit 1
           fi
-          echo "$GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
+          printf '%s' "$GOOGLE_SERVICES_B64" | tr -d '\r\n ' | base64 --decode > android/app/google-services.json
 
       # ── 5a. Restaurar lib/firebase_options.dart (fora do Git) ─────────────
       #    Secret FIREBASE_OPTIONS_DART = base64 do arquivo.
@@ -61,7 +61,7 @@ jobs:
             echo "::error::Secret FIREBASE_OPTIONS_DART ausente."
             exit 1
           fi
-          echo "$FIREBASE_OPTIONS_B64" | base64 --decode > lib/firebase_options.dart
+          printf '%s' "$FIREBASE_OPTIONS_B64" | tr -d '\r\n ' | base64 --decode > lib/firebase_options.dart
 
       # ── 5b. Mascarar chaves sensíveis do Firebase nos logs ────────────────
       - name: Mascarar chaves Firebase
@@ -106,7 +106,7 @@ jobs:
             echo "::error::Secret ANDROID_KEYSTORE_BASE64 ausente — APK sairia com debug key aleatória e a atualização automática falharia."
             exit 1
           fi
-          echo "$KEYSTORE_B64" | base64 --decode > android/app/release.jks
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 --decode > android/app/release.jks
           cat > android/key.properties <<EOF
           storeFile=release.jks
           storePassword=$KEYSTORE_PASSWORD
