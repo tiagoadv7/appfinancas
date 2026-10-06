@@ -6114,9 +6114,16 @@ void main() async {
   await initializeDateFormatting('pt_BR', null);
   // Inicializar Firebase (somente em produção; mock não precisa)
   if (!useMockAuth) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } on FirebaseException catch (e) {
+      // No Android o google-services.json já cria o app [DEFAULT] nativo;
+      // se as opções do Dart divergirem, usa o nativo em vez de travar
+      // o app na splash (exceção aqui impediria o runApp).
+      if (e.code != 'duplicate-app') rethrow;
+    }
   }
   runApp(const MyApp());
 }
