@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -16,6 +17,7 @@ import 'auth/mock_auth_service.dart';
 import 'auth/firebase_auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/update_service.dart';
+import 'package:ota_update/ota_update.dart' show OtaEvent, OtaStatus;
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
@@ -32,6 +34,7 @@ const Color primaryColor = Color.fromARGB(255, 0, 183, 255); // Indigo-600
 const Color secondaryColor = Color(0xFFF3F4F6); // Gray-100
 const Color incomeColor = Color(0xFF10B981); // Emerald-500
 const Color expenseColor = Color(0xFFF43F5E); // Rose-500
+const Color pendingIncomeColor = Color(0xFF60A5FA); // Blue-400 — "A Receber"
 const Color successColor = Color(0xFF10B981);
 
 // Mapa de ícones como const — garante que todos os glyphs FontAwesome
@@ -3693,7 +3696,7 @@ class DashboardScreen extends StatelessWidget {
                       context,
                       label: 'A Receber',
                       value: pendingIncome,
-                      color: expenseColor,
+                      color: pendingIncomeColor,
                       align: CrossAxisAlignment.end,
                     ),
                   ],
@@ -3741,7 +3744,7 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Contas a Pagar',
+                          'A Pagar',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -3751,7 +3754,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(totalExpense),
+                          formatCurrency(pendingExpense),
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -3780,8 +3783,8 @@ class DashboardScreen extends StatelessWidget {
                     const Spacer(),
                     _summaryItem(
                       context,
-                      label: 'A Pagar',
-                      value: pendingExpense,
+                      label: 'Contas a Pagar',
+                      value: totalExpense,
                       color: expenseColor,
                       align: CrossAxisAlignment.end,
                     ),
@@ -4480,6 +4483,422 @@ class _SyncDialogState extends State<_SyncDialog> {
   }
 }
 
+class _UpdateCheckTile extends StatefulWidget {
+  @override
+  State<_UpdateCheckTile> createState() => _UpdateCheckTileState();
+}
+
+class _UpdateCheckTileState extends State<_UpdateCheckTile> {
+  String? _version;
+
+  @override
+  void initState() {
+    super.initState();
+    UpdateService.currentVersion().then((v) {
+      if (mounted) setState(() => _version = v);
+    });
+  }
+
+  void _showCheckDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _UpdateDialog(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(
+        Icons.system_update_rounded,
+        color: primaryColor,
+      ),
+      title: const Text('Verificar Atualização'),
+      subtitle: Text(_version == null ? '' : 'Versão atual: $_version'),
+      trailing: const Icon(FontAwesomeIcons.chevronRight),
+      onTap: _showCheckDialog,
+    );
+  }
+}
+
+// Estados internos do fluxo de checagem de atualização
+enum _UpdateStep {
+  checking,
+  upToDate,
+  updateAvailable,
+  downloading,
+  installing,
+  error,
+  installError,
+}
+
+/// Diálogo de checagem/atualização — mesmo padrão visual do
+/// diálogo de sincronização (_SyncDialog): cabeçalho, ícone central
+/// que reflete o estado, mensagem e botões de ação.
+class _UpdateDialog extends StatefulWidget {
+  /// Quando informado (checagem automática ao abrir o app), o diálogo
+  /// já nasce no estado final em vez de checar a rede novamente.
+  final UpdateCheckResult? initialResult;
+
+  /// Inicia o download/instalação sem esperar o usuário tocar em "Atualizar".
+  final bool autoInstall;
+
+  const _UpdateDialog({this.initialResult, this.autoInstall = false});
+
+  @override
+  State<_UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<_UpdateDialog> {
+  _UpdateStep _step = _UpdateStep.checking;
+  UpdateInfo? _info;
+  int _progress = 0;
+  String? _installErrorMsg;
+  StreamSubscription<OtaEvent>? _installSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialResult != null) {
+      _applyResult(widget.initialResult!);
+      if (widget.autoInstall &&
+          _step == _UpdateStep.updateAvailable &&
+          (_info?.canInstallInApp ?? false)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _startUpdate());
+      }
+    } else {
+      _check();
+    }
+  }
+
+  @override
+  void dispose() {
+    _installSub?.cancel();
+    super.dispose();
+  }
+
+  /// Baixa e instala dentro do app; sem APK publicado (ou fora do Android)
+  /// cai no comportamento antigo de abrir o link no navegador.
+  Future<void> _startUpdate() async {
+    final info = _info!;
+    if (!info.canInstallInApp) {
+      final uri = Uri.parse(info.url);
+      Navigator.of(context).pop();
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
+    setState(() {
+      _step = _UpdateStep.downloading;
+      _progress = 0;
+    });
+    _installSub?.cancel();
+    try {
+      _installSub = UpdateService.install(info).listen(
+        (event) {
+          if (!mounted) return;
+          setState(() {
+            switch (event.status) {
+              case OtaStatus.DOWNLOADING:
+                _step = _UpdateStep.downloading;
+                _progress = int.tryParse(event.value ?? '') ?? _progress;
+                break;
+              case OtaStatus.INSTALLING:
+              case OtaStatus.INSTALLATION_DONE:
+                _step = _UpdateStep.installing;
+                break;
+              case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
+                _step = _UpdateStep.installError;
+                _installErrorMsg =
+                    'Permita "Instalar apps desconhecidos" para o Finanças App nas configurações e tente novamente.';
+                break;
+              default:
+                _step = _UpdateStep.installError;
+                _installErrorMsg =
+                    'Falha ao baixar/instalar a atualização.\n${event.value ?? ''}'
+                        .trim();
+            }
+          });
+        },
+        onError: (Object e) {
+          if (!mounted) return;
+          setState(() {
+            _step = _UpdateStep.installError;
+            _installErrorMsg = 'Falha ao baixar a atualização.\n$e';
+          });
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _step = _UpdateStep.installError;
+        _installErrorMsg = 'Falha ao iniciar a atualização.\n$e';
+      });
+    }
+  }
+
+  void _applyResult(UpdateCheckResult result) {
+    switch (result.status) {
+      case UpdateCheckStatus.updateAvailable:
+        _step = _UpdateStep.updateAvailable;
+        _info = result.info;
+        break;
+      case UpdateCheckStatus.upToDate:
+        _step = _UpdateStep.upToDate;
+        break;
+      case UpdateCheckStatus.error:
+        _step = _UpdateStep.error;
+        break;
+    }
+  }
+
+  Future<void> _check() async {
+    setState(() => _step = _UpdateStep.checking);
+    final result = await UpdateService.checkForUpdateManual();
+    if (!mounted) return;
+    setState(() => _applyResult(result));
+  }
+
+  bool get _busy =>
+      _step == _UpdateStep.checking || _step == _UpdateStep.downloading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400, minWidth: 300),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Cabeçalho ──────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Atualização',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                      onPressed: _busy
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+
+                // ── Ícone central ───────────────────────────────────
+                const SizedBox(height: 8),
+                Center(
+                  child: _busy
+                      ? SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: primaryColor,
+                            value: _step == _UpdateStep.downloading &&
+                                    _progress > 0
+                                ? _progress / 100
+                                : null,
+                          ),
+                        )
+                      : Icon(
+                          switch (_step) {
+                            _UpdateStep.upToDate =>
+                              Icons.check_circle_outline,
+                            _UpdateStep.error ||
+                            _UpdateStep.installError =>
+                              Icons.cloud_off_outlined,
+                            _UpdateStep.installing =>
+                              Icons.install_mobile_rounded,
+                            _ => Icons.system_update_rounded,
+                          },
+                          size: 56,
+                          color: switch (_step) {
+                            _UpdateStep.upToDate => incomeColor,
+                            _UpdateStep.error ||
+                            _UpdateStep.installError => expenseColor,
+                            _ => primaryColor,
+                          },
+                        ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Mensagem de status ──────────────────────────────
+                Center(
+                  child: Text(
+                    switch (_step) {
+                      _UpdateStep.checking => 'Verificando atualizações...',
+                      _UpdateStep.upToDate =>
+                        'Você já está na versão mais recente!',
+                      _UpdateStep.error =>
+                        'Não foi possível verificar atualizações.\nVerifique sua conexão e tente novamente.',
+                      _UpdateStep.updateAvailable =>
+                        'Finanças App ${_info?.version} está disponível!',
+                      _UpdateStep.downloading =>
+                        'Baixando versão ${_info?.version}... $_progress%',
+                      _UpdateStep.installing =>
+                        'Download concluído!\nConfirme a instalação na tela do Android.',
+                      _UpdateStep.installError =>
+                        _installErrorMsg ?? 'Falha ao instalar a atualização.',
+                    },
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: _step == _UpdateStep.updateAvailable
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: switch (_step) {
+                        _UpdateStep.upToDate => incomeColor,
+                        _UpdateStep.error ||
+                        _UpdateStep.installError => expenseColor,
+                        _ => Theme.of(context).colorScheme.onSurfaceVariant,
+                      },
+                    ),
+                  ),
+                ),
+                if (_step == _UpdateStep.updateAvailable &&
+                    (_info?.notes.isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _info!.notes,
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ],
+                const SizedBox(height: 24),
+
+                // ── Botões ──────────────────────────────────────────
+                if (_step == _UpdateStep.downloading)
+                  OutlinedButton.icon(
+                    icon: const Icon(FontAwesomeIcons.xmark),
+                    label: const Text('Cancelar download'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () {
+                      _installSub?.cancel();
+                      Navigator.of(context).pop();
+                    },
+                  )
+                else if (_step == _UpdateStep.upToDate ||
+                    _step == _UpdateStep.installing)
+                  ElevatedButton.icon(
+                    icon: const Icon(FontAwesomeIcons.check),
+                    label: const Text('OK'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: incomeColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                else if (_step == _UpdateStep.updateAvailable)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.clock),
+                          label: const Text('Mais tarde'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.download),
+                          label: const Text('Atualizar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _startUpdate,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.xmark),
+                          label: const Text('Cancelar'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _busy
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(FontAwesomeIcons.arrowsRotate),
+                          label: const Text('Verificar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _busy ? null : _check,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final User user;
   final bool isAdmin;
@@ -4525,14 +4944,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _emailController;
   bool _isEditing = false;
 
-  /// Soma todas as entradas (income) do mês selecionado, incluindo recorrentes.
-  /// Soma todas as entradas (income) do mês selecionado, incluindo recorrentes.
-  double _incomeForSelectedMonth() {
+  /// Soma apenas as transações da categoria "Salário" no mês selecionado,
+  /// incluindo recorrentes — é o valor exibido/editado como Renda.
+  double _salaryForSelectedMonth() {
     final month = widget.selectedMonth;
     double total = 0;
     for (final t in widget.transactions) {
       final cat = widget.getCategoryById(t.categoryId);
-      if (cat.type != 'income') continue;
+      if (cat.name != 'Salário') continue;
       bool matches;
       if (t.isRecurring &&
           t.recurringStartMonth != null &&
@@ -4865,9 +5284,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSalaryDialog() {
-    final currentIncome = _incomeForSelectedMonth();
+    final salaryFromCategory = _salaryForSelectedMonth();
     final initialValue =
-        widget.user.salary > 0 ? widget.user.salary : currentIncome;
+        salaryFromCategory > 0 ? salaryFromCategory : widget.user.salary;
     final initialText =
         NumberFormat('#,##0.00', 'pt_BR').format(initialValue);
     final monthLabel = DateFormat(
@@ -5352,7 +5771,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     title: const Text('Renda'),
                     subtitle: Text(
-                      '${formatCurrency(_incomeForSelectedMonth())} · ${DateFormat('MMM/yyyy', 'pt_BR').format(widget.selectedMonth)}',
+                      '${formatCurrency(_salaryForSelectedMonth())} · ${DateFormat('MMM/yyyy', 'pt_BR').format(widget.selectedMonth)}',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -5481,6 +5900,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: _UpdateCheckTile(),
+          ),
 
           const SizedBox(height: 24),
           Padding(
@@ -6004,6 +6429,9 @@ class _MainAppState extends State<MainApp>
     // Configure auth service: mock em debug, Firebase em produção
     _authService = useMockAuth ? MockAuthService() : FirebaseAuthService();
     _loadCachedData().then((_) {
+      // Religa a sincronização em tempo real com o Firestore quando o app
+      // reabre com sessão salva (sem passar pela tela de login)
+      _resumeFirestoreSync();
       // Bloqueia ao iniciar se o dispositivo tiver PIN/biometria ativo
       _lockIfSecured();
       // Auto-dispara biometria no login se o usuário já tinha entrado antes
@@ -6022,11 +6450,49 @@ class _MainAppState extends State<MainApp>
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
 
-  Future<void> _checkForUpdate() async {
-    final update = await UpdateService.checkForUpdate();
-    if (update != null && mounted) {
-      await UpdateService.showUpdateDialog(context, update);
+  bool _resumingSync = false;
+
+  /// Sessão restaurada do cache: confirma que o Firebase Auth ainda tem o
+  /// mesmo usuário e assina os streams (carrega também o dono dos dados,
+  /// caso seja colaborador). Sem isso o app só lia/gravava o cache local
+  /// até o próximo login manual.
+  Future<void> _resumeFirestoreSync() async {
+    if (useMockAuth || _isGuest || _resumingSync) return;
+    final user = _currentUser;
+    if (user == null || _txSub != null) return;
+    _resumingSync = true;
+    try {
+      if (await _authService.hasActiveSession(user.id) && mounted) {
+        await _postLoginSetup(user);
+      }
+    } catch (_) {
+      // Sem rede/sessão: segue com o cache; tenta de novo ao voltar ao app
+    } finally {
+      _resumingSync = false;
     }
+  }
+
+  bool _updateDialogOpen = false;
+
+  /// Checagem automática: havendo release nova com APK, já inicia o
+  /// download e abre o instalador do Android (que pede a confirmação final).
+  Future<void> _checkForUpdate() async {
+    if (_updateDialogOpen) return;
+    final update = await UpdateService.checkForUpdate();
+    if (update == null || !mounted || _updateDialogOpen) return;
+    _updateDialogOpen = true;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _UpdateDialog(
+        initialResult: UpdateCheckResult(
+          UpdateCheckStatus.updateAvailable,
+          update,
+        ),
+        autoInstall: true,
+      ),
+    );
+    _updateDialogOpen = false;
   }
 
   @override
@@ -6063,6 +6529,13 @@ class _MainAppState extends State<MainApp>
 
     // Ignora mudanças de ciclo causadas pelo próprio diálogo biométrico
     if (_isAuthenticating) return;
+
+    // Ao voltar ao app, verifica se saiu release nova (respeita o intervalo)
+    // e religa o Firestore caso a sincronização ainda não esteja ativa
+    if (state == AppLifecycleState.resumed) {
+      _checkForUpdate();
+      _resumeFirestoreSync();
+    }
 
     if (state == AppLifecycleState.paused && !_isGuest) {
       setState(() => _isLocked = true);
@@ -6826,6 +7299,43 @@ class _MainAppState extends State<MainApp>
                   );
                 },
               ),
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      FontAwesomeIcons.download,
+                      size: 16,
+                      color: primaryColor,
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'O convite inclui o link para baixar o app:\ngithub.com/tiagoadv7/appfinancas/releases/latest',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(FontAwesomeIcons.copy, size: 16),
+                      tooltip: 'Copiar link',
+                      onPressed: () {
+                        Clipboard.setData(
+                          const ClipboardData(
+                            text:
+                                'https://github.com/tiagoadv7/appfinancas/releases/latest',
+                          ),
+                        );
+                        _showSuccessSnackBar('Link copiado!');
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           actions: [
@@ -6923,12 +7433,12 @@ $senderName te convidou para fazer parte do painel financeiro dele no Finanças 
 📋 Sua função: $roleLabel
 
 Para aceitar o convite:
-1. Baixe o Finanças App
+1. Baixe o Finanças App no link abaixo
 2. Crie sua conta com este e-mail
 3. Você será adicionado automaticamente
 
-🔗 Repositório do projeto:
-https://github.com/tiagoadv7/appfinancas
+📲 Baixar o app (última versão):
+https://github.com/tiagoadv7/appfinancas/releases/latest
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
 

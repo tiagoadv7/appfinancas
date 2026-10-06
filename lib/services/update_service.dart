@@ -1,111 +1,120 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+/// Resultado de uma checagem de atualização.
+enum UpdateCheckStatus { upToDate, updateAvailable, error }
+
+class UpdateCheckResult {
+  final UpdateCheckStatus status;
+  final UpdateInfo? info;
+
+  const UpdateCheckResult(this.status, [this.info]);
+}
 
 class UpdateService {
   static const String _repoOwner = 'tiagoadv7';
   static const String _repoName = 'appfinancas';
-  static const String _branch = 'main';
   static const String _lastCheckKey = 'last_update_check';
 
-  /// URL do version.json no repositório GitHub (raw content).
-  static String get _versionUrl =>
-      'https://raw.githubusercontent.com/$_repoOwner/$_repoName/$_branch/version.json';
+  /// Intervalo mínimo entre checagens automáticas (abertura/retorno ao app).
+  /// Curto para que releases novas sejam detectadas rapidamente, mas sem
+  /// estourar o limite de 60 req/h da API anônima do GitHub.
+  static const Duration _checkInterval = Duration(minutes: 30);
 
-  /// Consulta o version.json do repositório e retorna dados da nova versão,
-  /// ou null se já está atualizado ou checagem foi há menos de 20 horas.
+  /// API do GitHub que retorna a release mais recente do repositório —
+  /// a tag da release é a fonte da verdade, não há arquivo a manter em dia.
+  static String get _latestReleaseUrl =>
+      'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest';
+
+  /// Checagem automática (silenciosa) ao abrir o app.
+  /// Respeita o intervalo mínimo entre checagens e nunca lança exceção.
   static Future<UpdateInfo?> checkForUpdate() async {
     if (!await _shouldCheck()) return null;
+    final result = await checkForUpdateManual();
+    return result.status == UpdateCheckStatus.updateAvailable
+        ? result.info
+        : null;
+  }
 
+  /// Checagem manual (via botão) — sempre consulta a rede e informa o
+  /// motivo de não haver atualização (já atualizado vs. erro de rede).
+  static Future<UpdateCheckResult> checkForUpdateManual() async {
     try {
       final response = await http
-          .get(Uri.parse(_versionUrl))
+          .get(
+            Uri.parse(_latestReleaseUrl),
+            headers: const {
+              'Accept': 'application/vnd.github+json',
+              'User-Agent': 'FinancasApp',
+            },
+          )
           .timeout(const Duration(seconds: 10));
 
       await _saveLastCheckTime();
 
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        return const UpdateCheckResult(UpdateCheckStatus.error);
+      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final remoteVersion = data['version'] as String? ?? '';
-      final releaseUrl = data['url'] as String? ?? '';
-      final releaseNotes = data['notes'] as String? ?? '';
+      final tagName = data['tag_name'] as String? ?? '';
+      final remoteVersion = tagName.startsWith('v')
+          ? tagName.substring(1)
+          : tagName;
+      if (remoteVersion.isEmpty) {
+        return const UpdateCheckResult(UpdateCheckStatus.error);
+      }
 
-      if (remoteVersion.isEmpty) return null;
+      final assets = (data['assets'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>();
+      final apkAsset = assets.firstWhere(
+        (a) {
+          final name = (a['name'] as String? ?? '').toLowerCase();
+          return name.startsWith('financasapp-') && name.endsWith('.apk');
+        },
+        orElse: () => const <String, dynamic>{},
+      );
+      final apkUrl = apkAsset['browser_download_url'] as String?;
+      final pageUrl =
+          data['html_url'] as String? ??
+          'https://github.com/$_repoOwner/$_repoName/releases/latest';
+      final releaseNotes = data['body'] as String? ?? '';
 
       final packageInfo = await PackageInfo.fromPlatform();
       if (_isNewer(remoteVersion, packageInfo.version)) {
-        return UpdateInfo(
-          version: remoteVersion,
-          url: releaseUrl,
-          notes: releaseNotes,
+        return UpdateCheckResult(
+          UpdateCheckStatus.updateAvailable,
+          UpdateInfo(
+            version: remoteVersion,
+            url: apkUrl ?? pageUrl,
+            apkUrl: apkUrl,
+            notes: releaseNotes,
+          ),
         );
       }
-      return null;
+      return const UpdateCheckResult(UpdateCheckStatus.upToDate);
     } catch (_) {
-      return null;
+      return const UpdateCheckResult(UpdateCheckStatus.error);
     }
   }
 
-  /// Exibe o diálogo de atualização na tela.
-  static Future<void> showUpdateDialog(
-    BuildContext context,
-    UpdateInfo update,
-  ) async {
-    if (!context.mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.system_update_rounded, color: Color(0xFF00B7FF)),
-            SizedBox(width: 8),
-            Text('Nova versão disponível'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Finanças App ${update.version} está disponível!',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            if (update.notes.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                update.notes,
-                maxLines: 6,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Mais tarde'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final uri = Uri.parse(update.url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Atualizar'),
-          ),
-        ],
-      ),
+  /// Baixa o APK da release e abre o instalador do Android.
+  /// O stream reporta progresso (DOWNLOADING, valor = %) e o resultado.
+  static Stream<OtaEvent> install(UpdateInfo info) {
+    return OtaUpdate().execute(
+      info.apkUrl!,
+      destinationFilename: 'FinancasApp-${info.version}.apk',
     );
+  }
+
+  /// Versão atualmente instalada (para exibir na tela de perfil).
+  static Future<String> currentVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    return info.version;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -118,7 +127,7 @@ class UpdateService {
     if (raw == null) return true;
     final last = DateTime.tryParse(raw);
     if (last == null) return true;
-    return DateTime.now().difference(last).inHours >= 20;
+    return DateTime.now().difference(last) >= _checkInterval;
   }
 
   static Future<void> _saveLastCheckTime() async {
@@ -141,12 +150,24 @@ class UpdateService {
 
 class UpdateInfo {
   final String version;
+
+  /// APK direto quando existir; senão a página da release.
   final String url;
+
+  /// Link direto do APK — null se a release não tiver o asset.
+  final String? apkUrl;
   final String notes;
 
   const UpdateInfo({
     required this.version,
     required this.url,
+    this.apkUrl,
     required this.notes,
   });
+
+  /// Pode ser baixado e instalado dentro do app (Android com APK publicado).
+  bool get canInstallInApp =>
+      apkUrl != null &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android;
 }

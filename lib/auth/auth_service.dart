@@ -34,6 +34,10 @@ abstract class AuthService {
     required String newPassword,
   });
 
+  /// Verifica se a sessão persistida no dispositivo ainda é válida para [uid]
+  /// (app reaberto sem novo login). Usado para religar a sincronização.
+  Future<bool> hasActiveSession(String uid);
+
   /// Faz logout do usuário atual.
   Future<void> signOut();
 

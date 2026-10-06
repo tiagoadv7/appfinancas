@@ -67,6 +67,9 @@ class GoogleAuthService implements AuthService {
   }
 
   @override
+  Future<bool> hasActiveSession(String uid) async => _user?.id == uid;
+
+  @override
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();

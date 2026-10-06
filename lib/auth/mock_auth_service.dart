@@ -197,6 +197,9 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<bool> hasActiveSession(String uid) async => false;
+
+  @override
   Future<void> signOut() async {
     await Future.delayed(const Duration(milliseconds: 100));
     _user = null;

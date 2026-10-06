@@ -227,6 +227,17 @@ class FirebaseAuthService implements AuthService {
     throw Exception('Sessão expirada. Faça login novamente.');
   }
 
+  /// O FirebaseAuth restaura a sessão do disco de forma assíncrona —
+  /// aguarda o primeiro evento antes de ler o usuário atual.
+  @override
+  Future<bool> hasActiveSession(String uid) async {
+    final fbUser = await _auth
+        .authStateChanges()
+        .first
+        .timeout(const Duration(seconds: 10), onTimeout: () => _auth.currentUser);
+    return fbUser != null && fbUser.uid == uid;
+  }
+
   /// Login com Google.
   /// • Web  → signInWithPopup (Firebase)
   /// • Mobile → google_sign_in (seletor nativo de contas) + credencial Firebase
@@ -269,17 +280,25 @@ class FirebaseAuthService implements AuthService {
     } on fb.FirebaseAuthException catch (e) {
       throw Exception(_translateError(e.code));
     } on PlatformException catch (e) {
-      if (e.code == 'sign_in_canceled' || e.code == 'sign_in_failed') {
+      // Apenas cancelamento explícito do usuário deve falhar em silêncio.
+      // 'sign_in_failed' normalmente é ApiException 10 (DEVELOPER_ERROR):
+      // falta cadastrar o SHA-1 do certificado como cliente Android no
+      // Firebase Console — isso precisa aparecer para o usuário, não ficar
+      // em silêncio parecendo que nada aconteceu.
+      if (e.code == 'sign_in_canceled') {
         return null;
       }
-      throw Exception('Erro ao entrar com Google: ${e.message}');
+      throw Exception(
+        'Erro ao entrar com Google (${e.code}). Verifique se o SHA-1 do '
+        'certificado está cadastrado como app Android no Firebase Console.',
+      );
     } catch (e) {
       final msg = e.toString();
       if (msg.contains('popup-closed') || msg.contains('popup_closed') ||
           msg.contains('sign_in_canceled')) {
         return null;
       }
-      throw Exception('Erro ao entrar com Google. Verifique se o SHA-1 do app está configurado no Firebase Console.');
+      throw Exception('Erro ao entrar com Google: $msg');
     }
   }
 
