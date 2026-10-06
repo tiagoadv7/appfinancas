@@ -27,7 +27,8 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.x'
+          # Mesma versão usada localmente — pubspec exige Dart >= 3.10
+          flutter-version: '3.38.1'
           channel: stable
           cache: true
 
