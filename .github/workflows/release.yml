@@ -45,7 +45,23 @@ jobs:
         env:
           GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
+          if [ -z "$GOOGLE_SERVICES_B64" ]; then
+            echo "::error::Secret GOOGLE_SERVICES_JSON ausente."
+            exit 1
+          fi
           echo "$GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
+
+      # ── 5a. Restaurar lib/firebase_options.dart (fora do Git) ─────────────
+      #    Secret FIREBASE_OPTIONS_DART = base64 do arquivo.
+      - name: Restaurar firebase_options.dart
+        env:
+          FIREBASE_OPTIONS_B64: ${{ secrets.FIREBASE_OPTIONS_DART }}
+        run: |
+          if [ -z "$FIREBASE_OPTIONS_B64" ]; then
+            echo "::error::Secret FIREBASE_OPTIONS_DART ausente."
+            exit 1
+          fi
+          echo "$FIREBASE_OPTIONS_B64" | base64 --decode > lib/firebase_options.dart
 
       # ── 5b. Mascarar chaves sensíveis do Firebase nos logs ────────────────
       - name: Mascarar chaves Firebase
