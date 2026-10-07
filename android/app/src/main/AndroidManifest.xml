@@ -45,6 +45,21 @@
                     android:pathPrefix="/__/auth/action" />
             </intent-filter>
         </activity>
+        <!-- Lembretes de contas (flutter_local_notifications): dispara os
+             agendados com o app fechado e reagenda após reiniciar/atualizar -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- ota_update: expõe o APK baixado ao instalador do sistema -->
         <provider
             android:name="sk.fourq.otaupdate.OtaUpdateFileProvider"

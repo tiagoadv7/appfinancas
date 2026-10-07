@@ -17,6 +17,7 @@ import 'auth/mock_auth_service.dart';
 import 'auth/firebase_auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/update_service.dart';
+import 'services/reminder_service.dart';
 import 'package:ota_update/ota_update.dart' show OtaEvent, OtaStatus;
 import 'models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6472,8 +6473,10 @@ class _MainAppState extends State<MainApp>
       // Religa a sincronização em tempo real com o Firestore quando o app
       // reabre com sessão salva (sem passar pela tela de login)
       _resumeFirestoreSync();
-      // Bloqueia ao iniciar se o dispositivo tiver PIN/biometria ativo
-      _lockIfSecured();
+      // Bloqueia ao iniciar se o dispositivo tiver PIN/biometria ativo.
+      // Lembretes só depois: um toque em notificação não pode abrir a
+      // conta por cima da tela de bloqueio.
+      _lockIfSecured().then((_) => _initReminders());
       // Auto-dispara biometria no login se o usuário já tinha entrado antes
       if (!kIsWeb && _currentUser == null && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -6488,6 +6491,135 @@ class _MainAppState extends State<MainApp>
     _loadInitialData();
     // Verifica atualização disponível ao abrir o app (foreground)
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  // ── Lembretes de contas (notificações locais) ─────────────────────────
+
+  /// Ocorrência a abrir quando o usuário toca numa notificação; fica
+  /// pendente até o app estar desbloqueado e com os dados carregados.
+  String? _pendingReminderId;
+  Timer? _reminderDebounce;
+
+  Future<void> _initReminders() async {
+    try {
+      final launchId = await ReminderService.init(onTap: _onReminderTapped);
+      if (launchId != null) _pendingReminderId = launchId;
+    } catch (_) {
+      return; // sem lembretes, mas o app segue normal
+    }
+    _scheduleReminders();
+  }
+
+  void _onReminderTapped(String occurrenceId) {
+    _pendingReminderId = occurrenceId;
+    _openPendingReminder();
+  }
+
+  /// Reagenda os lembretes (com debounce: o stream do Firestore pode
+  /// disparar várias vezes seguidas) e tenta abrir um toque pendente.
+  void _scheduleReminders() {
+    _reminderDebounce?.cancel();
+    _reminderDebounce = Timer(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      try {
+        await ReminderService.reschedule(
+          _isGuest ? const [] : _buildReminders(),
+        );
+      } catch (_) {}
+      _openPendingReminder();
+    });
+  }
+
+  /// Contas e recebimentos não quitados com vencimento de hoje em diante,
+  /// expandindo recorrentes nos próximos meses (mesma regra do extrato).
+  List<BillReminder> _buildReminders() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final months = List.generate(
+      3,
+      (i) => DateTime(today.year, today.month + i),
+    );
+    final occurrences = <Transaction>[];
+    for (final t in _transactions) {
+      if (t.isRecurring &&
+          t.recurringStartMonth != null &&
+          t.recurringEndMonth != null) {
+        for (final m in months) {
+          if (_occursInMonth(t, m)) occurrences.add(_occurrenceFor(t, m));
+        }
+      } else {
+        occurrences.add(t);
+      }
+    }
+    return occurrences
+        .where((o) => !o.isPaid && !o.date.isBefore(today))
+        .map(
+          (o) => BillReminder(
+            occurrenceId: o.id,
+            description: o.description.isNotEmpty
+                ? o.description
+                : _getCategoryById(o.categoryId).name,
+            amountLabel: formatCurrency(o.amount),
+            dueDate: o.date,
+            isIncome: _getCategoryById(o.categoryId).type == 'income',
+          ),
+        )
+        .toList();
+  }
+
+  /// Ocorrência de uma recorrente no mês — mesmo formato do extrato
+  /// (id 'baseId@yyyy-MM', dia ajustado ao tamanho do mês, pago do mês).
+  Transaction _occurrenceFor(Transaction t, DateTime month) {
+    final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
+    final day = t.date.day.clamp(
+      1,
+      DateUtils.getDaysInMonth(month.year, month.month),
+    );
+    final map = t.toMap();
+    map['id'] = '${t.id}@$monthKey';
+    map['date'] = '$monthKey-${day.toString().padLeft(2, '0')}';
+    map['isPaid'] = t.paidByMonth[monthKey] ?? false;
+    return Transaction.fromMap(map);
+  }
+
+  Transaction? _findOccurrence(String occurrenceId) {
+    final at = occurrenceId.indexOf('@');
+    final baseId = at == -1 ? occurrenceId : occurrenceId.substring(0, at);
+    final base = _transactions.where((t) => t.id == baseId).firstOrNull;
+    if (base == null || at == -1) return base;
+    final month = DateTime.tryParse('${occurrenceId.substring(at + 1)}-01');
+    return month == null ? base : _occurrenceFor(base, month);
+  }
+
+  /// Abre a conta do lembrete tocado: vai para o extrato no mês dela, com
+  /// o filtro certo, e abre o formulário para ver/marcar como pago.
+  void _openPendingReminder() {
+    final id = _pendingReminderId;
+    if (id == null ||
+        !mounted ||
+        _isGuest ||
+        _isLocked ||
+        _showUnlockAnimation) {
+      return;
+    }
+    final occurrence = _findOccurrence(id);
+    if (occurrence == null) return; // dados ainda não chegaram; tenta depois
+    _pendingReminderId = null;
+
+    final isIncome = _getCategoryById(occurrence.categoryId).type == 'income';
+    setState(() {
+      _selectedIndex = 1;
+      _extractFocusDate = DateTime(
+        occurrence.date.year,
+        occurrence.date.month,
+      );
+      _extractFilterType = isIncome ? 'income_pending' : 'expense_pending';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Fecha diálogos/telas abertas antes de mostrar a conta
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      _showNewTransactionModal(occurrence);
+    });
   }
 
   bool _resumingSync = false;
@@ -6537,6 +6669,7 @@ class _MainAppState extends State<MainApp>
 
   @override
   void dispose() {
+    _reminderDebounce?.cancel();
     _unlockAnimController.dispose();
     _unlockFadeController.dispose();
     _txSub?.cancel();
@@ -6920,6 +7053,9 @@ class _MainAppState extends State<MainApp>
       'categories',
       jsonEncode(_categories.map((c) => c.toMap()).toList()),
     );
+    // Toda mudança nos dados passa por aqui (inclusive stream do
+    // Firestore e logout) — mantém os lembretes em dia
+    _scheduleReminders();
   }
 
   // --- Lógica Mock de Carregamento de Dados (Simulando Firebase) ---
@@ -9157,6 +9293,8 @@ Finanças App — Controle suas finanças com simplicidade.
                         _showUnlockAnimation = false;
                         _unlockFadeController.reset();
                       });
+                      // Notificação tocada com o app bloqueado: abre agora
+                      _openPendingReminder();
                     }
                   });
               },
