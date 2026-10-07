@@ -961,6 +961,10 @@ class NewTransactionForm extends StatefulWidget {
   final Function(Category)? onCategoryAdded;
   final double userSalary;
 
+  /// Categorias que já têm lançamento no mês — o formulário pula essas
+  /// e sugere a próxima da sequência.
+  final Set<String> usedCategoryIds;
+
   const NewTransactionForm({
     super.key,
     required this.categories,
@@ -970,6 +974,7 @@ class NewTransactionForm extends StatefulWidget {
     this.defaultFilterType,
     this.onCategoryAdded,
     this.userSalary = 0.0,
+    this.usedCategoryIds = const {},
   });
 
   @override
@@ -1027,33 +1032,26 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                 .toList()
           : widget.categories;
 
-      // Pré-seleciona Salário para entradas, Moradia para saídas
+      // Pré-seleciona Salário para entradas, Moradia para saídas; se já
+      // houver lançamento nela no mês, sugere a próxima da sequência
       if (widget.defaultFilterType == 'income') {
-        final salario = categoriesToFilter
-            .where((c) => c.name == 'Salário')
-            .firstOrNull;
-        _selectedCategoryId =
-            salario?.id ??
-            (categoriesToFilter.isNotEmpty
-                ? categoriesToFilter.first.id
-                : null);
+        _selectedCategoryId = _nextUnusedCategory('income', 'Salário');
       } else if (widget.defaultFilterType == 'expense') {
-        final moradia = categoriesToFilter
-            .where((c) => c.name == 'Moradia')
-            .firstOrNull;
-        _selectedCategoryId =
-            moradia?.id ??
-            (categoriesToFilter.isNotEmpty
-                ? categoriesToFilter.first.id
-                : null);
+        _selectedCategoryId = _nextUnusedCategory('expense', 'Moradia');
       } else {
         _selectedCategoryId = categoriesToFilter.isNotEmpty
             ? categoriesToFilter.first.id
             : null;
       }
 
-      // Pré-preenche o valor com o salário cadastrado ao abrir para entrada
-      if (widget.defaultFilterType == 'income' && widget.userSalary > 0) {
+      // Pré-preenche o valor com o salário cadastrado — só quando a
+      // categoria sugerida é o próprio Salário
+      final selected = widget.categories
+          .where((c) => c.id == _selectedCategoryId)
+          .firstOrNull;
+      if (widget.defaultFilterType == 'income' &&
+          widget.userSalary > 0 &&
+          selected?.name == 'Salário') {
         _amount = widget.userSalary.toStringAsFixed(2).replaceAll('.', ',');
       }
     }
@@ -1061,6 +1059,25 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
 
   String _monthKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
+  /// Percorre as categorias do [type] na mesma ordem do seletor (padrão,
+  /// depois personalizadas), a partir de [preferredName], e devolve a
+  /// primeira sem lançamento no mês. Se todas já tiverem, mantém a preferida.
+  String? _nextUnusedCategory(String type, String preferredName) {
+    final ordered = [
+      ...widget.categories.where((c) => c.type == type && c.isDefault),
+      ...widget.categories.where((c) => c.type == type && !c.isDefault),
+    ];
+    if (ordered.isEmpty) return null;
+    final start = ordered
+        .indexWhere((c) => c.name == preferredName)
+        .clamp(0, ordered.length - 1);
+    for (var i = 0; i < ordered.length; i++) {
+      final c = ordered[(start + i) % ordered.length];
+      if (!widget.usedCategoryIds.contains(c.id)) return c.id;
+    }
+    return ordered[start].id;
+  }
 
   void _submitForm() {
     if (_formKey.currentState!.validate() && _selectedCategoryId != null) {
@@ -3394,6 +3411,10 @@ class DashboardScreen extends StatelessWidget {
     final previsto = summary['previsto'] ?? 0;
     final pendingIncome = summary['pendingIncome'] ?? 0;
     final pendingExpense = summary['pendingExpense'] ?? 0;
+    // Entradas do mês todas marcadas como recebidas (flag ou check)
+    final allIncomeReceived = paidIncome > 0 && pendingIncome <= 0;
+    // Saídas do mês todas marcadas como pagas (flag ou check)
+    final allExpensePaid = paidExpense > 0 && pendingExpense <= 0;
 
     final totalSettled = paidIncome + paidExpense;
     final totalAll = totalIncome + totalExpense;
@@ -3655,21 +3676,27 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Contas a Receber',
+                          allIncomeReceived ? 'Recebido' : 'Contas a Receber',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: primaryColor,
+                            color: allIncomeReceived
+                                ? incomeColor
+                                : primaryColor,
                             letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(totalIncome),
-                          style: const TextStyle(
+                          formatCurrency(
+                            allIncomeReceived ? paidIncome : totalIncome,
+                          ),
+                          style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: primaryColor,
+                            color: allIncomeReceived
+                                ? incomeColor
+                                : primaryColor,
                           ),
                         ),
                       ],
@@ -3685,11 +3712,13 @@ class DashboardScreen extends StatelessWidget {
                 Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
                 Row(
                   children: [
+                    // Tudo recebido: "Recebido" sobe para o destaque e o
+                    // total "Contas a Receber" desce para cá
                     _summaryItem(
                       context,
-                      label: 'Recebido',
-                      value: paidIncome,
-                      color: incomeColor,
+                      label: allIncomeReceived ? 'Contas a Receber' : 'Recebido',
+                      value: allIncomeReceived ? totalIncome : paidIncome,
+                      color: allIncomeReceived ? primaryColor : incomeColor,
                     ),
                     const Spacer(),
                     _summaryItem(
@@ -3744,21 +3773,23 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'A Pagar',
-                          style: const TextStyle(
+                          allExpensePaid ? 'Pago' : 'A Pagar',
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: expenseColor,
+                            color: allExpensePaid ? incomeColor : expenseColor,
                             letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatCurrency(pendingExpense),
-                          style: const TextStyle(
+                          formatCurrency(
+                            allExpensePaid ? paidExpense : pendingExpense,
+                          ),
+                          style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: expenseColor,
+                            color: allExpensePaid ? incomeColor : expenseColor,
                           ),
                         ),
                       ],
@@ -3774,11 +3805,13 @@ class DashboardScreen extends StatelessWidget {
                 Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
                 Row(
                   children: [
+                    // Tudo pago: "Pago" sobe para o destaque e "A Pagar"
+                    // (zerado) desce para cá
                     _summaryItem(
                       context,
-                      label: 'Pago',
-                      value: paidExpense,
-                      color: incomeColor,
+                      label: allExpensePaid ? 'A Pagar' : 'Pago',
+                      value: allExpensePaid ? pendingExpense : paidExpense,
+                      color: allExpensePaid ? expenseColor : incomeColor,
                     ),
                     const Spacer(),
                     _summaryItem(
@@ -7598,7 +7631,19 @@ Finanças App — Controle suas finanças com simplicidade.
         final stored = _transactions[index];
         final map = transaction.toMap();
         map['id'] = baseId; // restaura ID base
-        map['paidByMonth'] = stored.paidByMonth; // preserva status por mês
+        // Preserva status por mês; se a edição veio de um mês específico
+        // de uma recorrente, o check "já foi recebido/pago" vale para esse
+        // mês — mesmo comportamento do flag no card do extrato.
+        final paidMap = Map<String, bool>.from(stored.paidByMonth);
+        if (transaction.id.contains('@')) {
+          final monthKey =
+              transaction.id.substring(transaction.id.indexOf('@') + 1);
+          paidMap[monthKey] = transaction.isPaid;
+          map['isPaid'] = stored.isPaid;
+        }
+        map['paidByMonth'] = paidMap;
+        // Nova referência de lista para que didUpdateWidget detecte a mudança
+        _transactions = List<Transaction>.from(_transactions);
         _transactions[index] = Transaction.fromMap(map);
         updatedMap = map;
       }
@@ -8244,6 +8289,30 @@ Finanças App — Controle suas finanças com simplicidade.
 
   // --- Lógica de Derivação de Dados (Para Dashboard) ---
   // Calcula o sumário filtrado para um mês específico
+  /// A transação aparece no mês informado? (considera recorrência e
+  /// meses excluídos de recorrentes)
+  bool _occursInMonth(Transaction t, DateTime month) {
+    final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
+    if (t.isRecurring &&
+        t.recurringStartMonth != null &&
+        t.recurringEndMonth != null) {
+      final start = DateTime.parse('${t.recurringStartMonth}-01');
+      final end = DateTime.parse('${t.recurringEndMonth}-01');
+      final selected = DateTime(month.year, month.month);
+      if (selected.isBefore(start) || selected.isAfter(end)) return false;
+    } else if (t.date.year != month.year || t.date.month != month.month) {
+      return false;
+    }
+    return !(t.isRecurring && t.deletedMonths.contains(monthKey));
+  }
+
+  /// Categorias que já têm lançamento no mês — usadas para o formulário
+  /// sugerir a próxima categoria da sequência.
+  Set<String> _categoryIdsUsedInMonth(DateTime month) => _transactions
+      .where((t) => _occursInMonth(t, month))
+      .map((t) => t.categoryId)
+      .toSet();
+
   Map<String, double> _calculateSummaryForMonth(DateTime month) {
     double paidIncome = 0;
     double paidExpense = 0;
@@ -8251,22 +8320,10 @@ Finanças App — Controle suas finanças com simplicidade.
     double totalExpense = 0;
 
     for (var t in _transactions) {
-      bool matchesMonth;
-      if (t.isRecurring &&
-          t.recurringStartMonth != null &&
-          t.recurringEndMonth != null) {
-        final start = DateTime.parse('${t.recurringStartMonth}-01');
-        final end = DateTime.parse('${t.recurringEndMonth}-01');
-        final selected = DateTime(month.year, month.month);
-        matchesMonth = !selected.isBefore(start) && !selected.isAfter(end);
-      } else {
-        matchesMonth = t.date.year == month.year && t.date.month == month.month;
-      }
-      if (!matchesMonth) continue;
+      if (!_occursInMonth(t, month)) continue;
 
       final monthKey =
           '${month.year}-${month.month.toString().padLeft(2, '0')}';
-      if (t.isRecurring && t.deletedMonths.contains(monthKey)) continue;
       final isPaidForMonth = t.isRecurring
           ? (t.paidByMonth[monthKey] ?? false)
           : t.isPaid;
@@ -9056,6 +9113,8 @@ Finanças App — Controle suas finanças com simplicidade.
           transactionToEdit: transactionToEdit,
           defaultFilterType: defaultFilterType,
           userSalary: _currentUser?.salary ?? 0.0,
+          // Mês da data padrão do formulário (hoje)
+          usedCategoryIds: _categoryIdsUsedInMonth(DateTime.now()),
           onCategoryAdded: (Category cat) {
             _categories.add(cat);
             setState(() {});
@@ -9265,9 +9324,15 @@ Finanças App — Controle suas finanças com simplicidade.
                   3 // Oculta o FAB na aba "Perfil" e "Todos"
           ? FloatingActionButton(
               onPressed: () {
-                final filterType = _extractFilterType == 'all'
-                    ? null
-                    : _extractFilterType;
+                // Filtros do extrato (income_pending, expense_paid...) viram
+                // o tipo do formulário, que pré-seleciona Salário/Moradia
+                // ou a próxima categoria livre do mês
+                final f = _extractFilterType;
+                final filterType = f.startsWith('income')
+                    ? 'income'
+                    : f.startsWith('expense')
+                    ? 'expense'
+                    : null;
                 _showNewTransactionModal(null, filterType);
               },
               backgroundColor: primaryColor,
