@@ -1012,6 +1012,10 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
 
   bool get _isEditing => widget.transactionToEdit != null;
 
+  // Ocorrência de uma recorrente (id 'baseId@yyyy-MM'): a edição vale só para o mês
+  bool get _isOccurrenceEdit =>
+      _isEditing && widget.transactionToEdit!.id.contains('@');
+
   @override
   void initState() {
     super.initState();
@@ -1025,6 +1029,14 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
       _selectedDate = t.date;
       _isPaid = t.isPaid;
       _comments = t.comments ?? '';
+      // Mantém a recorrência da transação ao editá-la
+      _isRecurring = t.isRecurring;
+      if (t.recurringStartMonth != null) {
+        _recurringStartMonth = DateTime.parse('${t.recurringStartMonth}-01');
+      }
+      if (t.recurringEndMonth != null) {
+        _recurringEndMonth = DateTime.parse('${t.recurringEndMonth}-01');
+      }
     } else {
       // Filtra categorias pelo tipo padrão se fornecido
       final categoriesToFilter = widget.defaultFilterType != null
@@ -1724,6 +1736,7 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
                     ),
                     const SizedBox(height: 8),
                     // ── Recorrência ───────────────────────────────────────────
+                    if (!_isOccurrenceEdit)
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(
@@ -7759,35 +7772,62 @@ Finanças App — Controle suas finanças com simplicidade.
     final baseId = transaction.id.contains('@')
         ? transaction.id.substring(0, transaction.id.indexOf('@'))
         : transaction.id;
+    final monthKey = transaction.id.contains('@')
+        ? transaction.id.substring(transaction.id.indexOf('@') + 1)
+        : null;
+    final newId = 't${DateTime.now().millisecondsSinceEpoch}';
     Map<String, dynamic>? updatedMap;
+    Map<String, dynamic>? occurrenceMap;
     setState(() {
       // IDs virtuais de recorrentes usam 'baseId@monthKey'; resolve o base
       final index = _transactions.indexWhere((t) => t.id == baseId);
       if (index != -1) {
         final stored = _transactions[index];
-        final map = transaction.toMap();
-        map['id'] = baseId; // restaura ID base
-        // Preserva status por mês; se a edição veio de um mês específico
-        // de uma recorrente, o check "já foi recebido/pago" vale para esse
-        // mês — mesmo comportamento do flag no card do extrato.
-        final paidMap = Map<String, bool>.from(stored.paidByMonth);
-        if (transaction.id.contains('@')) {
-          final monthKey =
-              transaction.id.substring(transaction.id.indexOf('@') + 1);
-          paidMap[monthKey] = transaction.isPaid;
-          map['isPaid'] = stored.isPaid;
-        }
-        map['paidByMonth'] = paidMap;
         // Nova referência de lista para que didUpdateWidget detecte a mudança
         _transactions = List<Transaction>.from(_transactions);
-        _transactions[index] = Transaction.fromMap(map);
-        updatedMap = map;
+        if (monthKey != null) {
+          // Editar uma ocorrência altera só esse mês: o mês sai da recorrente
+          // (deletedMonths) e vira um lançamento avulso com os novos dados.
+          final deleted = stored.deletedMonths.contains(monthKey)
+              ? stored.deletedMonths
+              : [...stored.deletedMonths, monthKey];
+          updatedMap = stored.copyWith(deletedMonths: deleted).toMap();
+          _transactions[index] = Transaction.fromMap(updatedMap!);
+          occurrenceMap = {
+            'id': newId,
+            'description': transaction.description,
+            'amount': transaction.amount,
+            'categoryId': transaction.categoryId,
+            'date': transaction.date.toIso8601String().substring(0, 10),
+            'isPaid': transaction.isPaid,
+            'comments': transaction.comments,
+            'isRecurring': false,
+            'recurringStartMonth': null,
+            'recurringEndMonth': null,
+            'paidByMonth': <String, bool>{},
+            'deletedMonths': <String>[],
+          };
+          _transactions.add(Transaction.fromMap(occurrenceMap!));
+        } else {
+          final map = transaction.toMap();
+          map['id'] = baseId; // restaura ID base
+          // Preserva status por mês e meses excluídos da recorrente
+          map['paidByMonth'] = stored.paidByMonth;
+          map['deletedMonths'] = stored.deletedMonths;
+          _transactions[index] = Transaction.fromMap(map);
+          updatedMap = map;
+        }
       }
     });
     _saveCachedData();
     // Persiste atualização no Firestore
-    if (!useMockAuth && _activeUid != null && updatedMap != null) {
-      _firestoreService.saveTransactionRaw(_activeUid!, baseId, updatedMap!);
+    if (!useMockAuth && _activeUid != null) {
+      if (updatedMap != null) {
+        _firestoreService.saveTransactionRaw(_activeUid!, baseId, updatedMap!);
+      }
+      if (occurrenceMap != null) {
+        _firestoreService.saveTransactionRaw(_activeUid!, newId, occurrenceMap!);
+      }
     }
     // Fechar o modal (caso esteja aberto)
     if (Navigator.canPop(context)) Navigator.of(context).pop();
